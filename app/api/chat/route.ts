@@ -38,11 +38,16 @@ ${dynamicApartments}
 Answer any specific guest questions using exactly this dynamic data. Do not hallucinate amenities not listed here.
 `;
 
+    const modelMessages = messages.map((m: any) => ({
+        role: m.role,
+        content: m.content || (m.parts ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : ''),
+    }));
+
     const result = streamText({
-        model: google('gemini-2.5-flash'),
+        model: google('gemini-3-flash-preview'),
         system: enhancedSystemPrompt,
-        messages,
+        messages: modelMessages,
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
 }

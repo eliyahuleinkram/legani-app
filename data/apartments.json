@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "name": "The Mystic View Suite",
+    "capacity": " 2 Adults, 2 Kids",
+    "roomsAndBeds": "Master bedroom features a King-size bed (Jewish beds that can separate). The main living area includes a premium pull-out sofa bed suitable for two children.",
+    "amenities": "Private panoramic balcony overlooking Mt. Meron, indoor Jacuzzi, Kosher kitchenette, Shabbat hotplate (Plata), hot water urn, Nespresso machine, fast Wi-Fi.",
+    "extraInfo": "Emphasize the romantic atmosphere and amazing sunset views. If guests ask about accessibility, let them know there are two flights of stairs to reach the unit, so it is not wheelchair accessible. Only a 5-minute walk to the Artist Quarter.",
+    "id": "1772204845658"
+  },
+  {
+    "name": "The Old City Family Arches",
+    "capacity": "4 Adults, 6 Kids",
+    "roomsAndBeds": "3 bedrooms total. The master and second bedrooms each have two twin beds. The children's room has two sets of bunk beds and a pull-out trundle. A baby crib is available in the master closet.",
+    "amenities": "Private historic stone courtyard, large dining table (seats 12), strict Kosher kitchen (separate meat and dairy sinks), washer and dryer, high chair, selection of Jewish board games.",
+    "extraInfo": " Ideal for large religious families wanting an authentic Old City Safed experience. If guests ask about parking, inform them that cars cannot enter the narrow alleyways; they must park at the public lot near the Ari Ashkenazi Synagogue (a 3-minute walk away).",
+    "id": "1772204870186"
+  }
+]

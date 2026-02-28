@@ -1,13 +1,14 @@
 "use client";
 
 import { useChat } from '@ai-sdk/react';
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function Chat() {
     // @ts-ignore: Next.js typing conflicts with bleeding-edge AI SDK types
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat();
+    const { messages, sendMessage, isLoading } = useChat();
+    const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -58,7 +59,7 @@ export function Chat() {
                                 ? 'bg-blue-600 text-white rounded-tr-sm'
                                 : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-tl-sm shadow-sm'
                                 }`}>
-                                {m.content}
+                                {m.content || (m.parts ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : '')}
                             </div>
                         </motion.div>
                     ))}
@@ -84,16 +85,22 @@ export function Chat() {
 
             {/* Input Area */}
             <div className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800">
-                <form onSubmit={handleSubmit} className="relative flex items-center">
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!input.trim() || isLoading) return;
+                    // In latest ai docs, sendMessage accepts { text: string } payload
+                    sendMessage({ text: input });
+                    setInput('');
+                }} className="relative flex items-center">
                     <input
                         className="w-full bg-zinc-100 dark:bg-zinc-800/50 border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm rounded-full pl-5 pr-12 py-3.5 outline-none transition-all duration-200"
-                        value={input || ''}
-                        onChange={handleInputChange}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask about a suite, bed setups, amenities..."
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !input?.trim()}
+                        disabled={isLoading || !input.trim()}
                         className="absolute right-2 p-2 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white transition-colors disabled:cursor-not-allowed flex items-center justify-center"
                     >
                         <Send className="w-4 h-4" />
