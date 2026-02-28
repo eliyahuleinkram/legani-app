@@ -7,22 +7,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export function Chat() {
     // @ts-ignore: Next.js typing conflicts with bleeding-edge AI SDK types
-    const { messages, append, sendMessage, isLoading } = useChat();
+    const { messages, append, sendMessage, isLoading, status } = useChat();
     const [input, setInput] = useState('');
     const [isDemoRunning, setIsDemoRunning] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const isLoadingRef = useRef(isLoading);
+
+    // Support both older and newer AI SDK versions
+    const isGenerating = status === 'submitted' || status === 'streaming' || isLoading;
+    const isWaitingForFirstToken = status === 'submitted' || (isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === 'user'));
+
+    const isLoadingRef = useRef(isGenerating);
 
     useEffect(() => {
-        isLoadingRef.current = isLoading;
-    }, [isLoading]);
+        isLoadingRef.current = isGenerating;
+    }, [isGenerating]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const runChatDemo = async () => {
-        if (isDemoRunning || isLoading) return;
+        if (isDemoRunning || isGenerating) return;
         setIsDemoRunning(true);
 
         const typeAndSend = async (text: string, delayBefore = 1000, typingSpeed = 30) => {
@@ -66,6 +71,16 @@ export function Chat() {
         setIsDemoRunning(false);
     };
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('demo') === 'true') {
+                runChatDemo();
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
         <div className="flex flex-col h-[600px] w-full max-w-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden font-sans">
             {/* Header */}
@@ -81,7 +96,7 @@ export function Chat() {
                 </div>
                 <button
                     onClick={runChatDemo}
-                    disabled={isDemoRunning || isLoading}
+                    disabled={isDemoRunning || isGenerating}
                     className="text-[10px] tracking-[0.1em] uppercase bg-white dark:bg-zinc-800 text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 font-semibold shadow-sm disabled:opacity-50"
                 >
                     <Play className="w-3 h-3 fill-current" />
@@ -128,24 +143,25 @@ export function Chat() {
                             </div>
                         </motion.div>
                     ))}
-                    {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                    {isWaitingForFirstToken && (
                         <motion.div
+                            key="loading-bubble"
                             initial={{ opacity: 0, y: 15, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ type: "spring", stiffness: 400, damping: 25 }}
                             className="flex gap-3 justify-start"
                         >
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-1 shadow-sm relative overflow-hidden">
-                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0_340deg,rgba(161,161,170,0.4)_360deg)] opacity-70" />
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-1 shadow-md relative overflow-hidden group">
+                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0_340deg,rgba(161,161,170,0.6)_360deg)] opacity-80" />
                                 <div className="absolute inset-[1px] bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center">
                                     <Sparkles className="w-4 h-4 text-zinc-700 dark:text-zinc-300 relative z-10" />
                                 </div>
                             </div>
-                            <div className="px-6 py-4 bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-3xl rounded-tl-sm flex items-center gap-2 shadow-sm relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 dark:via-white/5 to-transparent opacity-50 pointer-events-none" />
-                                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0 }} className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.5)]" />
-                                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }} className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.5)]" />
-                                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }} className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.5)]" />
+                            <div className="px-6 py-4 bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-3xl rounded-tl-sm flex items-center gap-3 shadow-lg relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/60 dark:via-white/5 to-transparent opacity-60 pointer-events-none" />
+                                <motion.div animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0 }} className="w-2 h-2 rounded-full bg-zinc-500 dark:bg-zinc-400 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.6)]" />
+                                <motion.div animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} className="w-2 h-2 rounded-full bg-zinc-500 dark:bg-zinc-400 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.6)]" />
+                                <motion.div animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} className="w-2 h-2 rounded-full bg-zinc-500 dark:bg-zinc-400 relative z-10 shadow-[0_0_8px_rgba(161,161,170,0.6)]" />
                             </div>
                         </motion.div>
                     )}
@@ -157,8 +173,12 @@ export function Chat() {
             <div className="p-6 bg-white/50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800">
                 <form onSubmit={(e) => {
                     e.preventDefault();
-                    if (!input.trim() || isLoading) return;
-                    sendMessage({ text: input });
+                    if (!input.trim() || isGenerating) return;
+                    if (sendMessage) {
+                        sendMessage({ text: input });
+                    } else if (append) {
+                        append({ role: 'user', content: input });
+                    }
                     setInput('');
                 }} className="relative flex items-center">
                     <input
@@ -170,7 +190,7 @@ export function Chat() {
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !input.trim()}
+                        disabled={isGenerating || !input.trim()}
                         className="absolute right-2 p-2.5 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 disabled:opacity-50 transition-all disabled:cursor-not-allowed flex items-center justify-center shadow-md hover:bg-black dark:hover:bg-white"
                     >
                         <Send className="w-4 h-4" />
