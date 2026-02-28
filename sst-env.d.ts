@@ -6,6 +6,10 @@
 
 declare module "sst" {
   export interface Resource {
+    "Apartments": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "GoogleApiKey": {
       "type": "sst.sst.Secret"
       "value": string

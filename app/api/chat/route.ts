@@ -1,20 +1,23 @@
 import { google } from '@ai-sdk/google';
 import { streamText } from 'ai';
-import { diamondsAlleyContext } from '../../../data/diamonds-alley-context';
-import fs from 'fs';
-import path from 'path';
+import { leganiContext } from '../../../data/legani-context';
+import { Resource } from "sst";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
 
 export async function POST(req: Request) {
     const { messages } = await req.json();
 
     let dynamicApartments = "No specific apartment data has been added yet.";
     try {
-        const dataFilePath = path.join(process.cwd(), 'data', 'apartments.json');
-        if (fs.existsSync(dataFilePath)) {
-            const data = fs.readFileSync(dataFilePath, 'utf8');
-            const apartments = JSON.parse(data);
-            if (apartments.length > 0) {
-                dynamicApartments = "Here are the details of our active apartments:\n\n" + apartments.map((a: any) => `
+        const command = new ScanCommand({ TableName: Resource.Apartments.name });
+        const response = await docClient.send(command);
+        const apartments = response.Items || [];
+        if (apartments.length > 0) {
+            dynamicApartments = "Here are the details of our active apartments:\n\n" + apartments.map((a: any) => `
 - Name: ${a.name}
 - Capacity: ${a.capacity}
 - Rooms & Beds Details:
@@ -22,14 +25,13 @@ ${a.roomsAndBeds}
 - Amenities: ${a.amenities}
 - Extra Info: ${a.extraInfo}
 `).join('\n');
-            }
         }
     } catch (e) {
         console.error("Failed to read dynamic apartments", e);
     }
 
     const enhancedSystemPrompt = `
-${diamondsAlleyContext}
+${leganiContext}
 
 --- DYNAMIC INVENTORY & APARTMENT DATA FROM CMS ---
 ${dynamicApartments}

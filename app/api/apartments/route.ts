@@ -1,17 +1,22 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+export const dynamic = 'force-dynamic';
 
-const dataFilePath = path.join(process.cwd(), 'data', 'apartments.json');
+import { NextResponse } from 'next/server';
+import { Resource } from "sst";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, PutCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
 
 export async function GET() {
     try {
-        if (!fs.existsSync(dataFilePath)) {
-            return NextResponse.json([]);
-        }
-        const data = fs.readFileSync(dataFilePath, 'utf8');
-        return NextResponse.json(JSON.parse(data));
+        const command = new ScanCommand({
+            TableName: Resource.Apartments.name,
+        });
+        const response = await docClient.send(command);
+        return NextResponse.json(response.Items || []);
     } catch (error) {
+        console.error("GET error", error);
         return NextResponse.json({ error: 'Failed to read data' }, { status: 500 });
     }
 }
@@ -19,37 +24,36 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const newApartment = await req.json();
-        let apartments = [];
-
-        if (fs.existsSync(dataFilePath)) {
-            const data = fs.readFileSync(dataFilePath, 'utf8');
-            apartments = JSON.parse(data);
-        }
-
         newApartment.id = Date.now().toString();
-        apartments.push(newApartment);
 
-        fs.writeFileSync(dataFilePath, JSON.stringify(apartments, null, 2));
+        const command = new PutCommand({
+            TableName: Resource.Apartments.name,
+            Item: newApartment,
+        });
+        await docClient.send(command);
 
         return NextResponse.json(newApartment, { status: 201 });
     } catch (error) {
+        console.error("POST error", error);
         return NextResponse.json({ error: 'Failed to save data' }, { status: 500 });
     }
 }
 
 export async function DELETE(req: Request) {
     try {
-        const { id } = await req.json();
+        const url = new URL(req.url);
+        const id = url.searchParams.get('id');
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        if (fs.existsSync(dataFilePath)) {
-            const data = fs.readFileSync(dataFilePath, 'utf8');
-            let apartments = JSON.parse(data);
-            apartments = apartments.filter((a: any) => a.id !== id);
-            fs.writeFileSync(dataFilePath, JSON.stringify(apartments, null, 2));
-        }
+        const command = new DeleteCommand({
+            TableName: Resource.Apartments.name,
+            Key: { id },
+        });
+        await docClient.send(command);
+
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error("DELETE error", error);
         return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
     }
 }

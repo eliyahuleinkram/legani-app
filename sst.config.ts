@@ -13,8 +13,19 @@ export default $config({
   async run() {
     const googleApiKey = new sst.Secret("GoogleApiKey");
 
+    const apartmentsTable = new sst.aws.Dynamo("Apartments", {
+      fields: {
+        id: "string",
+      },
+      primaryIndex: { hashKey: "id" },
+    });
+
     new sst.aws.Nextjs("MyWeb", {
-      link: [googleApiKey],
+      domain: {
+        name: "legani.co",
+        dns: sst.cloudflare.dns(),
+      },
+      link: [googleApiKey, apartmentsTable],
       environment: {
         GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
       },
