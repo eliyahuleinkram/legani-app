@@ -25,7 +25,7 @@ export default $config({
         cacheKey: "string",
       },
       primaryIndex: { hashKey: "cacheKey" },
-      timeToLive: "ttl", // Add a TTL field so cache isn't permanent forever
+      ttl: "ttl", // Add a TTL field so cache isn't permanent forever
     });
 
     new sst.aws.Nextjs("MyWeb", {

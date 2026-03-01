@@ -60,19 +60,23 @@ Answer any specific guest questions using exactly this dynamic data. Do not hall
 
         if (cacheResponse.Item && cacheResponse.Item.response) {
             const cachedText = cacheResponse.Item.response;
-            // Return a response that mimics the format of useChat's stream so the frontend parses it correctly
+            const messageId = crypto.randomUUID();
+
             const encoder = new TextEncoder();
             const stream = new ReadableStream({
                 start(controller) {
-                    // "0:" is the Vercel AI SDK Data Stream Protocol prefix for text parts
-                    controller.enqueue(encoder.encode(`0:${JSON.stringify(cachedText)}\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: messageId })}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: messageId, delta: cachedText })}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: messageId })}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish-step" })}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
                     controller.close();
                 }
             });
             return new Response(stream, {
                 headers: {
-                    'X-Vercel-AI-Data-Stream': 'v1',
-                    'Content-Type': 'text/plain; charset=utf-8'
+                    'Content-Type': 'text/event-stream; charset=utf-8',
+                    'x-vercel-ai-ui-message-stream': 'v1'
                 }
             });
         }
