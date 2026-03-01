@@ -33,8 +33,24 @@ export default function AdminDashboard() {
         }
     };
 
+    const checkDuplicate = (data: any) => {
+        const normalize = (str?: string) => str ? str.trim().replace(/\s+/g, ' ').toLowerCase() : '';
+        return apartments.some(apt =>
+            normalize(apt.name) === normalize(data.name) &&
+            normalize(apt.capacity) === normalize(data.capacity) &&
+            normalize(apt.roomsAndBeds) === normalize(data.roomsAndBeds) &&
+            normalize(apt.amenities) === normalize(data.amenities) &&
+            normalize(apt.extraInfo) === normalize(data.extraInfo)
+        );
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (checkDuplicate(formData)) {
+            alert('This property already exists in the knowledge base.');
+            return;
+        }
 
         // Optimistic UI Add
         const optimisticApt = { ...formData, id: `temp-${Date.now()}` };
@@ -56,6 +72,40 @@ export default function AdminDashboard() {
         } catch (error) {
             console.error(error);
             fetchApartments(); // Revert
+        }
+    };
+
+    const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (!isMobileView) return;
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('demo') !== 'true') return;
+
+        const el = e.target;
+
+        // Measure position BEFORE keyboard pushes the layout
+        const initialTop = el.getBoundingClientRect().top;
+
+        // If it starts in the lower half of the screen
+        if (initialTop > window.innerHeight / 2) {
+            // Wait brief moment for the keyboard to become active (if any)
+            setTimeout(() => {
+                const elRect = el.getBoundingClientRect();
+                const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+                // Check where it ended up after layout shifts
+                if (elRect.top > viewportHeight / 2) {
+                    const scrollAmount = elRect.top - (viewportHeight / 2);
+                    // Explicitly scroll all viewports smoothly.
+                    try {
+                        window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                        document.documentElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                        document.body.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                    } catch (e) {
+                        window.scrollBy(0, scrollAmount);
+                        document.documentElement.scrollBy(0, scrollAmount);
+                    }
+                }
+            }, 300);
         }
     };
 
@@ -83,6 +133,30 @@ export default function AdminDashboard() {
         setIsDemoRunning(true);
 
         const typeField = async (field: string, text: string, speed = 10) => {
+            const el = document.getElementById(`admin-input-${field}`) as HTMLElement;
+            if (el) {
+                el.focus(); // Give it actual focus so it looks active
+                if (isMobileView) {
+                    const elRect = el.getBoundingClientRect();
+                    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    if (elRect.top > viewportHeight / 2) {
+                        const scrollAmount = elRect.top - (viewportHeight / 2);
+                        try {
+                            // When embedded in an iframe, the window sometimes rejects scroll commands
+                            // We attempt to scroll all possible scrolling viewports
+                            window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                            document.documentElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                            document.body.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                        } catch (e) {
+                            window.scrollBy(0, scrollAmount);
+                            document.documentElement.scrollBy(0, scrollAmount);
+                        }
+                        // Wait a bit for smooth scrolling to start before typing rapidly
+                        await new Promise(r => setTimeout(r, 400));
+                    }
+                }
+            }
+
             for (let i = 0; i <= text.length; i++) {
                 setFormData(prev => ({ ...prev, [field]: text.slice(0, i) }));
                 setTimeout(() => {
@@ -207,23 +281,23 @@ export default function AdminDashboard() {
                             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Unit Name</label>
-                                    <input id="admin-input-name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. Royal Sapphire Suite" />
+                                    <input id="admin-input-name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. Royal Sapphire Suite" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Capacity</label>
-                                    <input id="admin-input-capacity" required value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. 2 adults, 3 kids" />
+                                    <input id="admin-input-capacity" required value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. 2 adults, 3 kids" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Room & Bed Details</label>
-                                    <textarea id="admin-input-roomsAndBeds" required value={formData.roomsAndBeds} onChange={e => setFormData({ ...formData, roomsAndBeds: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Master bedroom with King bed..." />
+                                    <textarea id="admin-input-roomsAndBeds" required value={formData.roomsAndBeds} onChange={e => setFormData({ ...formData, roomsAndBeds: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Master bedroom with King bed..." />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Amenities</label>
-                                    <textarea id="admin-input-amenities" required value={formData.amenities} onChange={e => setFormData({ ...formData, amenities: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Private Pool, Terrace..." />
+                                    <textarea id="admin-input-amenities" required value={formData.amenities} onChange={e => setFormData({ ...formData, amenities: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Private Pool, Terrace..." />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Extra Details for AI</label>
-                                    <textarea id="admin-input-extraInfo" value={formData.extraInfo} onChange={e => setFormData({ ...formData, extraInfo: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="Internal instructions..." />
+                                    <textarea id="admin-input-extraInfo" value={formData.extraInfo} onChange={e => setFormData({ ...formData, extraInfo: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="Internal instructions..." />
                                 </div>
                                 <div className="pt-4">
                                     <button type="submit" className="w-full py-3.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold text-sm tracking-wide transition-all shadow-md hover:bg-black dark:hover:bg-white">
@@ -247,7 +321,7 @@ export default function AdminDashboard() {
                             ) : (
                                 apartments.map((apt) => (
                                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={apt.id} className={`bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-6 relative group ${isMobileView ? '' : 'sm:flex-row'}`}>
-                                        <button onClick={() => handleDelete(apt.id)} className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                        <button onClick={() => handleDelete(apt.id)} className={`absolute top-6 right-6 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ${isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                         <div className="flex-1 space-y-4 text-zinc-800 dark:text-zinc-200">

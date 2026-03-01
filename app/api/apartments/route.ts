@@ -8,6 +8,8 @@ import { DynamoDBDocumentClient, ScanCommand, PutCommand, DeleteCommand } from "
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
+const normalizeString = (str?: string) => str ? str.trim().replace(/\s+/g, ' ').toLowerCase() : '';
+
 export async function GET() {
     try {
         const command = new ScanCommand({
@@ -24,6 +26,26 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const newApartment = await req.json();
+
+        // Check for duplicates
+        const scanCommand = new ScanCommand({
+            TableName: Resource.Apartments.name,
+        });
+        const existingResponse = await docClient.send(scanCommand);
+        const existing = existingResponse.Items || [];
+
+        const isDuplicate = existing.some(apt =>
+            normalizeString(apt.name) === normalizeString(newApartment.name) &&
+            normalizeString(apt.capacity) === normalizeString(newApartment.capacity) &&
+            normalizeString(apt.roomsAndBeds) === normalizeString(newApartment.roomsAndBeds) &&
+            normalizeString(apt.amenities) === normalizeString(newApartment.amenities) &&
+            normalizeString(apt.extraInfo) === normalizeString(newApartment.extraInfo)
+        );
+
+        if (isDuplicate) {
+            return NextResponse.json({ error: 'Property already exists' }, { status: 409 });
+        }
+
         newApartment.id = Date.now().toString();
 
         const command = new PutCommand({
