@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Sparkles, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Chat({ isFullscreen = false }: { isFullscreen?: boolean }) {
+export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
     // @ts-ignore: Next.js typing conflicts with bleeding-edge AI SDK types
     const { messages, append, sendMessage, isLoading, status } = useChat();
     const [input, setInput] = useState('');
@@ -82,9 +82,9 @@ export function Chat({ isFullscreen = false }: { isFullscreen?: boolean }) {
     }, []);
 
     return (
-        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isFullscreen ? 'h-[100dvh] rounded-none border-none' : 'h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
+        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isMobileView ? 'h-[100dvh] max-w-[430px] mx-auto rounded-none border-none shadow-none text-[15px]' : 'h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
             {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50">
+            <div className={`flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 ${isMobileView ? 'px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))]' : 'px-8 py-6'}`}>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm">
                         <Sparkles className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
@@ -105,7 +105,7 @@ export function Chat({ isFullscreen = false }: { isFullscreen?: boolean }) {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-zinc-50/50 dark:bg-black/20">
+            <div className={`flex-1 overflow-y-auto space-y-6 bg-zinc-50/50 dark:bg-black/20 ${isMobileView ? 'p-4' : 'p-6'}`}>
                 <AnimatePresence>
                     {messages.length === 0 && (
                         <motion.div
@@ -170,7 +170,7 @@ export function Chat({ isFullscreen = false }: { isFullscreen?: boolean }) {
             </div>
 
             {/* Input Area */}
-            <div className="p-6 bg-white/50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800">
+            <div className={`bg-white/50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800 ${isMobileView ? 'p-4 pb-[max(1rem,env(safe-area-inset-bottom))]' : 'p-6'}`}>
                 <form onSubmit={(e) => {
                     e.preventDefault();
                     if (!input.trim() || isGenerating) return;

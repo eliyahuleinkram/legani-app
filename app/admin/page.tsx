@@ -15,7 +15,7 @@ export default function AdminDashboard() {
         extraInfo: ''
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isMobileView, setIsMobileView] = useState(false);
 
     useEffect(() => {
         fetchApartments();
@@ -152,17 +152,17 @@ export default function AdminDashboard() {
             if (urlParams.get('demo') === 'true') {
                 runAdminDemo();
             }
-            if (urlParams.get('fullscreen') === 'true') {
-                setIsFullscreen(true);
+            if (urlParams.get('mobile') === 'true') {
+                setIsMobileView(true);
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex">
+        <div className={`min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex ${isMobileView ? 'max-w-[430px] mx-auto border-x border-zinc-200 dark:border-zinc-800 shadow-2xl relative bg-white' : ''}`}>
             {/* Sidebar */}
-            {!isFullscreen && (
+            {!isMobileView && (
                 <div className="w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-8 flex flex-col">
                     <h1 className="text-sm font-bold tracking-widest uppercase mb-10 text-zinc-900 dark:text-zinc-100">Legani Admin</h1>
                     <nav className="space-y-4 flex-1 text-sm font-medium">
@@ -180,16 +180,16 @@ export default function AdminDashboard() {
             )}
 
             {/* Main Content */}
-            <main className="flex-1 p-10 overflow-y-auto">
+            <main className={`flex-1 overflow-y-auto ${isMobileView ? 'p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))]' : 'p-10'}`}>
                 <div className="max-w-5xl mx-auto space-y-12">
                     <header>
                         <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Properties</h2>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 font-medium">Train the Legani Concierge with real-time portfolio updates.</p>
                     </header>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                    <div className={`grid grid-cols-1 gap-10 ${isMobileView ? '' : 'lg:grid-cols-3'}`}>
                         {/* Form */}
-                        <div className="lg:col-span-1 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 rounded-[2rem] shadow-sm h-fit">
+                        <div className={`border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 rounded-[2rem] shadow-sm h-fit ${isMobileView ? '' : 'lg:col-span-1'}`}>
                             <h3 className="font-semibold text-sm tracking-widest uppercase mb-6 flex items-center justify-between text-zinc-900 dark:text-zinc-100">
                                 <span className="flex items-center gap-2">
                                     <Plus className="w-4 h-4" /> Add Property
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* List */}
-                        <div className="lg:col-span-2 space-y-4">
+                        <div className={`space-y-4 ${isMobileView ? '' : 'lg:col-span-2'}`}>
                             {loading ? (
                                 <div className="animate-pulse flex flex-col gap-4">
                                     {[1, 2, 3].map(i => <div key={i} className="h-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full"></div>)}
@@ -246,17 +246,17 @@ export default function AdminDashboard() {
                                 </div>
                             ) : (
                                 apartments.map((apt) => (
-                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={apt.id} className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row gap-6 relative group">
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={apt.id} className={`bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-6 relative group ${isMobileView ? '' : 'sm:flex-row'}`}>
                                         <button onClick={() => handleDelete(apt.id)} className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                         <div className="flex-1 space-y-4 text-zinc-800 dark:text-zinc-200">
                                             <h4 className="text-xl font-semibold">{apt.name}</h4>
-                                            <div className="grid grid-cols-2 gap-x-8 gap-y-6 text-sm">
+                                            <div className={`grid gap-x-8 gap-y-6 text-sm ${isMobileView ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                                 <div><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Capacity</span> {apt.capacity}</div>
                                                 <div><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Amenities</span> {apt.amenities}</div>
-                                                <div className="col-span-2"><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Rooms & Beds</span> {apt.roomsAndBeds}</div>
-                                                {apt.extraInfo && <div className="col-span-2"><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Internal AI Note</span> {apt.extraInfo}</div>}
+                                                <div className={isMobileView ? '' : 'col-span-2'}><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Rooms & Beds</span> {apt.roomsAndBeds}</div>
+                                                {apt.extraInfo && <div className={isMobileView ? '' : 'col-span-2'}><span className="block mb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Internal AI Note</span> {apt.extraInfo}</div>}
                                             </div>
                                         </div>
                                     </motion.div>
