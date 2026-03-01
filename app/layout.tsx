@@ -13,10 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Legani | Intelligent Hospitality",
+  title: "Legani",
   description: "Experience the future of boutique luxury hosting. Legani is an intelligent concierge that knows everything about your stay.",
   openGraph: {
-    title: "Legani | Intelligent Hospitality",
+    title: "Legani",
     description: "Experience the future of boutique luxury hosting with Legani's intelligent concierge.",
     url: "https://legani.co",
     siteName: "Legani",
