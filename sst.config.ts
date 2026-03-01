@@ -20,12 +20,20 @@ export default $config({
       primaryIndex: { hashKey: "id" },
     });
 
+    const promptCacheTable = new sst.aws.Dynamo("PromptCache", {
+      fields: {
+        cacheKey: "string",
+      },
+      primaryIndex: { hashKey: "cacheKey" },
+      timeToLive: "ttl", // Add a TTL field so cache isn't permanent forever
+    });
+
     new sst.aws.Nextjs("MyWeb", {
       domain: {
         name: "legani.co",
         dns: sst.cloudflare.dns(),
       },
-      link: [googleApiKey, apartmentsTable],
+      link: [googleApiKey, apartmentsTable, promptCacheTable],
       environment: {
         GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
       },

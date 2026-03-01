@@ -15,6 +15,7 @@ export default function AdminDashboard() {
         extraInfo: ''
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         fetchApartments();
@@ -151,6 +152,9 @@ export default function AdminDashboard() {
             if (urlParams.get('demo') === 'true') {
                 runAdminDemo();
             }
+            if (urlParams.get('fullscreen') === 'true') {
+                setIsFullscreen(true);
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -158,20 +162,22 @@ export default function AdminDashboard() {
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex">
             {/* Sidebar */}
-            <div className="w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-8 flex flex-col">
-                <h1 className="text-sm font-bold tracking-widest uppercase mb-10 text-zinc-900 dark:text-zinc-100">Legani Admin</h1>
-                <nav className="space-y-4 flex-1 text-sm font-medium">
-                    <a href="#" className="flex items-center gap-3 px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-full transition-colors">
-                        <Home className="w-4 h-4" /> Inventory
-                    </a>
-                    <a href="/" className="flex items-center gap-3 px-4 py-2.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
-                        <MapPin className="w-4 h-4" /> Front Desk
-                    </a>
-                </nav>
-                <button className="flex items-center gap-3 px-4 py-2.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors mt-auto text-sm font-medium">
-                    <LogOut className="w-4 h-4" /> Sign Out
-                </button>
-            </div>
+            {!isFullscreen && (
+                <div className="w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-8 flex flex-col">
+                    <h1 className="text-sm font-bold tracking-widest uppercase mb-10 text-zinc-900 dark:text-zinc-100">Legani Admin</h1>
+                    <nav className="space-y-4 flex-1 text-sm font-medium">
+                        <a href="#" className="flex items-center gap-3 px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-full transition-colors">
+                            <Home className="w-4 h-4" /> Inventory
+                        </a>
+                        <a href="/" className="flex items-center gap-3 px-4 py-2.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+                            <MapPin className="w-4 h-4" /> Front Desk
+                        </a>
+                    </nav>
+                    <button className="flex items-center gap-3 px-4 py-2.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors mt-auto text-sm font-medium">
+                        <LogOut className="w-4 h-4" /> Sign Out
+                    </button>
+                </div>
+            )}
 
             {/* Main Content */}
             <main className="flex-1 p-10 overflow-y-auto">

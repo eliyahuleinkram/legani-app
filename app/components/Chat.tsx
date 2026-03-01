@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Sparkles, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Chat() {
+export function Chat({ isFullscreen = false }: { isFullscreen?: boolean }) {
     // @ts-ignore: Next.js typing conflicts with bleeding-edge AI SDK types
     const { messages, append, sendMessage, isLoading, status } = useChat();
     const [input, setInput] = useState('');
@@ -82,7 +82,7 @@ export function Chat() {
     }, []);
 
     return (
-        <div className="flex flex-col h-[600px] w-full max-w-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden font-sans">
+        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isFullscreen ? 'h-[100dvh] rounded-none border-none' : 'h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50">
                 <div className="flex items-center gap-4">

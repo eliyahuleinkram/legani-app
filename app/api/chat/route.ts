@@ -3,7 +3,8 @@ import { streamText } from 'ai';
 import { leganiContext } from '../../../data/legani-context';
 import { Resource } from "sst";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import crypto from "crypto";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -45,10 +46,62 @@ Answer any specific guest questions using exactly this dynamic data. Do not hall
         content: m.content || (m.parts ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : ''),
     }));
 
+    // Cache key incorporates both the conversation history and the dynamic inventory data
+    const rawCacheKey = JSON.stringify({ messages: modelMessages, dynamicApartments });
+    // Hash the cache key since DynamoDB Hash Keys have a 2048 byte limit, and history can get long.
+    const cacheKey = crypto.createHash('sha256').update(rawCacheKey).digest('hex');
+
+    try {
+        const getCmd = new GetCommand({
+            TableName: Resource.PromptCache.name,
+            Key: { cacheKey }
+        });
+        const cacheResponse = await docClient.send(getCmd);
+
+        if (cacheResponse.Item && cacheResponse.Item.response) {
+            const cachedText = cacheResponse.Item.response;
+            // Return a response that mimics the format of useChat's stream so the frontend parses it correctly
+            const encoder = new TextEncoder();
+            const stream = new ReadableStream({
+                start(controller) {
+                    // "0:" is the Vercel AI SDK Data Stream Protocol prefix for text parts
+                    controller.enqueue(encoder.encode(`0:${JSON.stringify(cachedText)}\n`));
+                    controller.close();
+                }
+            });
+            return new Response(stream, {
+                headers: {
+                    'X-Vercel-AI-Data-Stream': 'v1',
+                    'Content-Type': 'text/plain; charset=utf-8'
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Cache read failed", e);
+    }
+
     const result = streamText({
         model: google('gemini-3-flash-preview'),
         system: enhancedSystemPrompt,
         messages: modelMessages,
+        onFinish: async ({ text }) => {
+            // Save the complete response to the cache once stream finishes
+            try {
+                // TTL of 7 days (60 * 60 * 24 * 7 seconds)
+                const ttl = Math.floor(Date.now() / 1000) + (604800);
+                const putCmd = new PutCommand({
+                    TableName: Resource.PromptCache.name,
+                    Item: {
+                        cacheKey,
+                        response: text,
+                        ttl
+                    }
+                });
+                await docClient.send(putCmd);
+            } catch (e) {
+                console.error("Cache write failed", e);
+            }
+        }
     });
 
     return result.toUIMessageStreamResponse();
