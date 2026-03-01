@@ -2,19 +2,12 @@
 
 import { Chat } from './components/Chat';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-export default function Home() {
-  const [isMobileView, setIsMobileView] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('mobile') === 'true') {
-        setIsMobileView(true);
-      }
-    }
-  }, []);
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const isMobileView = searchParams.get('mobile') === 'true';
 
   return (
     <div className={`min-h-[100dvh] bg-black flex flex-col items-center justify-center relative overflow-hidden font-sans ${isMobileView ? '' : 'p-4'}`}>
@@ -45,5 +38,13 @@ export default function Home() {
         <Chat isMobileView={isMobileView} />
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-black"></div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

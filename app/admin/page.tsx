@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { Trash2, Plus, LogOut, Home, Key, MapPin, Sparkles, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
+    const searchParams = useSearchParams();
+    const isMobileView = searchParams.get('mobile') === 'true';
+    const isDemo = searchParams.get('demo') === 'true';
+
     const [apartments, setApartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -15,7 +20,6 @@ export default function AdminDashboard() {
         extraInfo: ''
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
-    const [isMobileView, setIsMobileView] = useState(false);
     const demoRunRef = useRef(false);
     const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/legani') ? '/demo/legani' : '';
 
@@ -194,17 +198,11 @@ export default function AdminDashboard() {
     };
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('demo') === 'true') {
-                runAdminDemo();
-            }
-            if (urlParams.get('mobile') === 'true') {
-                setIsMobileView(true);
-            }
+        if (isDemo) {
+            runAdminDemo();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [isDemo]);
 
     return (
         <div className={`min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex ${isMobileView ? 'max-w-[430px] mx-auto border-x border-zinc-200 dark:border-zinc-800 shadow-2xl relative bg-white' : ''}`}>
@@ -314,5 +312,13 @@ export default function AdminDashboard() {
                 </div>
             </main>
         </div>
+    );
+}
+
+export default function AdminDashboard() {
+    return (
+        <Suspense fallback={<div className="min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950"></div>}>
+            <AdminDashboardContent />
+        </Suspense>
     );
 }
