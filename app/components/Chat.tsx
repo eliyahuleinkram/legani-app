@@ -10,7 +10,7 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
     const { messages, append, sendMessage, isLoading, status } = useChat();
     const [input, setInput] = useState('');
     const [isDemoRunning, setIsDemoRunning] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Support both older and newer AI SDK versions
     const isGenerating = status === 'submitted' || status === 'streaming' || isLoading;
@@ -23,8 +23,21 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
     }, [isGenerating]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        if (messagesContainerRef.current) {
+            // Use requestAnimationFrame to guarantee React has committed the new message nodes to the DOM
+            // and the browser has calculated their real heights BEFORE we calculate scrollHeight.
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    if (messagesContainerRef.current) {
+                        messagesContainerRef.current.scrollTo({
+                            top: messagesContainerRef.current.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }
+                }, 50); // Tiny offset allows mobile Safari enough time for layout reflow on new flex items
+            });
+        }
+    }, [messages, isWaitingForFirstToken]);
 
     const runChatDemo = async () => {
         if (isDemoRunning || isGenerating) return;
@@ -105,7 +118,7 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
             </div>
 
             {/* Messages Area */}
-            <div className={`flex-1 overflow-y-auto space-y-6 bg-zinc-50/50 dark:bg-black/20 ${isMobileView ? 'p-4' : 'p-6'}`}>
+            <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto space-y-6 bg-zinc-50/50 dark:bg-black/20 ${isMobileView ? 'p-4' : 'p-6'}`}>
                 <AnimatePresence>
                     {messages.length === 0 && (
                         <motion.div
@@ -166,7 +179,6 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                         </motion.div>
                     )}
                 </AnimatePresence>
-                <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
@@ -183,7 +195,7 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                 }} className="relative flex items-center">
                     <input
                         id="chat-input"
-                        className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 focus:border-zinc-500 dark:focus:border-zinc-400 text-zinc-900 dark:text-zinc-100 text-[15px] font-medium rounded-full pl-6 pr-14 py-4 outline-none transition-all duration-300 shadow-sm"
+                        className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 focus:border-zinc-500 dark:focus:border-zinc-400 text-zinc-900 dark:text-zinc-100 text-base font-medium rounded-full pl-6 pr-14 py-4 outline-none transition-all duration-300 shadow-sm"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Type a message..."
@@ -197,6 +209,6 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                     </button>
                 </form>
             </div>
-        </div>
+        </div >
     );
 }

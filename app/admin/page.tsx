@@ -16,6 +16,7 @@ export default function AdminDashboard() {
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false);
+    const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/legani') ? '/demo/legani' : '';
 
     useEffect(() => {
         fetchApartments();
@@ -23,7 +24,7 @@ export default function AdminDashboard() {
 
     const fetchApartments = async () => {
         try {
-            const res = await fetch(`/api/apartments?t=${Date.now()}`, { cache: 'no-store' });
+            const res = await fetch(`${basePath}/api/apartments?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             setApartments(data);
         } catch (e) {
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
         setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', extraInfo: '' });
 
         try {
-            const res = await fetch('/api/apartments', {
+            const res = await fetch(`${basePath}/api/apartments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(submittedData)
@@ -75,39 +76,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        if (!isMobileView) return;
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('demo') !== 'true') return;
 
-        const el = e.target;
-
-        // Measure position BEFORE keyboard pushes the layout
-        const initialTop = el.getBoundingClientRect().top;
-
-        // If it starts in the lower half of the screen
-        if (initialTop > window.innerHeight / 2) {
-            // Wait brief moment for the keyboard to become active (if any)
-            setTimeout(() => {
-                const elRect = el.getBoundingClientRect();
-                const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-
-                // Check where it ended up after layout shifts
-                if (elRect.top > viewportHeight / 2) {
-                    const scrollAmount = elRect.top - (viewportHeight / 2);
-                    // Explicitly scroll all viewports smoothly.
-                    try {
-                        window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                        document.documentElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                        document.body.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                    } catch (e) {
-                        window.scrollBy(0, scrollAmount);
-                        document.documentElement.scrollBy(0, scrollAmount);
-                    }
-                }
-            }, 300);
-        }
-    };
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this apartment?')) return;
@@ -116,7 +85,7 @@ export default function AdminDashboard() {
         setApartments(prev => prev.filter(apt => apt.id !== id));
 
         try {
-            await fetch(`/api/apartments?id=${encodeURIComponent(id)}`, {
+            await fetch(`${basePath}/api/apartments?id=${encodeURIComponent(id)}`, {
                 method: 'DELETE',
             });
             // Delay the background fetch slightly to allow DynamoDB to become consistent
@@ -133,28 +102,20 @@ export default function AdminDashboard() {
         setIsDemoRunning(true);
 
         const typeField = async (field: string, text: string, speed = 10) => {
-            const el = document.getElementById(`admin-input-${field}`) as HTMLElement;
+            const el = document.getElementById(`admin-input-${field}`) as HTMLInputElement | HTMLTextAreaElement;
             if (el) {
-                el.focus(); // Give it actual focus so it looks active
-                if (isMobileView) {
-                    const elRect = el.getBoundingClientRect();
-                    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                    if (elRect.top > viewportHeight / 2) {
-                        const scrollAmount = elRect.top - (viewportHeight / 2);
-                        try {
-                            // When embedded in an iframe, the window sometimes rejects scroll commands
-                            // We attempt to scroll all possible scrolling viewports
-                            window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                            document.documentElement.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                            document.body.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                        } catch (e) {
-                            window.scrollBy(0, scrollAmount);
-                            document.documentElement.scrollBy(0, scrollAmount);
-                        }
-                        // Wait a bit for smooth scrolling to start before typing rapidly
-                        await new Promise(r => setTimeout(r, 400));
-                    }
-                }
+                // Prevent virtual keyboard from opening on mobile devices during demo
+                el.setAttribute('inputmode', 'none');
+
+                // Focus without auto-jumping natively
+                el.focus({ preventScroll: true });
+
+                // Extremely robust smooth scrolling mechanism that works in Safari, Chrome and nested iframes
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+                // Important: wait a little bit longer for the native smooth scrolling animation to visually finish
+                // before rapidly firing text, so it creates a seamless effect.
+                await new Promise(r => setTimeout(r, 600));
             }
 
             for (let i = 0; i <= text.length; i++) {
@@ -171,10 +132,15 @@ export default function AdminDashboard() {
                 await new Promise(r => setTimeout(r, speed));
             }
             await new Promise(r => setTimeout(r, 400));
+
+            if (el) {
+                el.blur();
+                el.removeAttribute('inputmode');
+            }
         };
 
         const submitForm = async (data: any) => {
-            await fetch('/api/apartments', {
+            await fetch(`${basePath}/api/apartments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -281,23 +247,23 @@ export default function AdminDashboard() {
                             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Unit Name</label>
-                                    <input id="admin-input-name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. Royal Sapphire Suite" />
+                                    <input id="admin-input-name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. Royal Sapphire Suite" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Capacity</label>
-                                    <input id="admin-input-capacity" required value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. 2 adults, 3 kids" />
+                                    <input id="admin-input-capacity" required value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 transition-colors placeholder-zinc-400" placeholder="e.g. 2 adults, 3 kids" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Room & Bed Details</label>
-                                    <textarea id="admin-input-roomsAndBeds" required value={formData.roomsAndBeds} onChange={e => setFormData({ ...formData, roomsAndBeds: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Master bedroom with King bed..." />
+                                    <textarea id="admin-input-roomsAndBeds" required value={formData.roomsAndBeds} onChange={e => setFormData({ ...formData, roomsAndBeds: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Master bedroom with King bed..." />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Amenities</label>
-                                    <textarea id="admin-input-amenities" required value={formData.amenities} onChange={e => setFormData({ ...formData, amenities: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Private Pool, Terrace..." />
+                                    <textarea id="admin-input-amenities" required value={formData.amenities} onChange={e => setFormData({ ...formData, amenities: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="e.g. Private Pool, Terrace..." />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-700 dark:text-zinc-300">Extra Details for AI</label>
-                                    <textarea id="admin-input-extraInfo" value={formData.extraInfo} onChange={e => setFormData({ ...formData, extraInfo: e.target.value })} onFocus={handleInputFocus} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="Internal instructions..." />
+                                    <textarea id="admin-input-extraInfo" value={formData.extraInfo} onChange={e => setFormData({ ...formData, extraInfo: e.target.value })} className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:border-zinc-500 h-24 resize-none transition-colors placeholder-zinc-400" placeholder="Internal instructions..." />
                                 </div>
                                 <div className="pt-4">
                                     <button type="submit" className="w-full py-3.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold text-sm tracking-wide transition-all shadow-md hover:bg-black dark:hover:bg-white">

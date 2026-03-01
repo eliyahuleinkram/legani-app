@@ -1,7 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  assetPrefix: 'https://legani.co',
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
