@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Trash2, Plus, LogOut, Home, Key, MapPin, Sparkles, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -16,6 +16,7 @@ export default function AdminDashboard() {
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false);
+    const demoRunRef = useRef(false);
     const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/legani') ? '/demo/legani' : '';
 
     useEffect(() => {
@@ -98,8 +99,13 @@ export default function AdminDashboard() {
     };
 
     const runAdminDemo = async () => {
-        if (isDemoRunning) return;
+        if (isDemoRunning || demoRunRef.current) return;
         setIsDemoRunning(true);
+        demoRunRef.current = true;
+
+        // Give the page layout a moment to completely settle down (e.g., skeletons removed)
+        // so that scrollIntoView isn't interrupted by sudden container height changes.
+        await new Promise(r => setTimeout(r, 1200));
 
         const typeField = async (field: string, text: string, speed = 10) => {
             const el = document.getElementById(`admin-input-${field}`) as HTMLInputElement | HTMLTextAreaElement;
@@ -184,6 +190,7 @@ export default function AdminDashboard() {
         });
 
         setIsDemoRunning(false);
+        demoRunRef.current = false;
     };
 
     useEffect(() => {
