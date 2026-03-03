@@ -12,6 +12,9 @@ export default $config({
   },
   async run() {
     const googleApiKey = new sst.Secret("GoogleApiKey");
+    const evoApiUrl = new sst.Secret("EvoApiUrl");
+    const evoApiKey = new sst.Secret("EvoApiKey");
+    const evoInstanceName = new sst.Secret("EvoInstanceName");
 
     const apartmentsTable = new sst.aws.Dynamo("Apartments", {
       fields: {
@@ -33,7 +36,7 @@ export default $config({
         name: "legani.co",
         dns: sst.cloudflare.dns(),
       },
-      link: [googleApiKey, apartmentsTable, promptCacheTable],
+      link: [googleApiKey, apartmentsTable, promptCacheTable, evoApiUrl, evoApiKey, evoInstanceName],
       environment: {
         GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
       },

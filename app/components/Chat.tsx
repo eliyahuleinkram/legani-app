@@ -2,7 +2,8 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, Sparkles, Play } from 'lucide-react';
+import Image from 'next/image';
+import { Send, Bot, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
@@ -95,25 +96,26 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
     }, []);
 
     return (
-        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isMobileView ? 'h-[100dvh] max-w-[430px] mx-auto rounded-none border-none shadow-none text-[15px]' : 'h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
+        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isMobileView ? 'h-[100dvh] max-w-[430px] mx-auto rounded-none border-none shadow-none text-[15px]' : 'h-[500px] sm:h-[550px] md:h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
             {/* Header */}
-            <div className={`flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 ${isMobileView ? 'px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))]' : 'px-8 py-6'}`}>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                        <Sparkles className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
+            <div className={`flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 ${isMobileView ? 'px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))]' : 'px-4 sm:px-8 py-4 sm:py-6'}`}>
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="flex items-center justify-center shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
+                        <Image src="/icon.png" alt="Legani" width={24} height={24} className="object-cover w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <div>
-                        <h2 className="text-[13px] font-semibold tracking-[0.2em] uppercase text-zinc-900 dark:text-zinc-100">Legani</h2>
-                        <p className="text-[10px] tracking-widest uppercase text-zinc-600 dark:text-zinc-400 font-medium">Concierge</p>
+                    <div className="min-w-0">
+                        <h2 className="text-xs sm:text-[13px] font-semibold tracking-[0.2em] uppercase text-zinc-900 dark:text-zinc-100 truncate">Legani</h2>
+                        <p className="text-[9px] sm:text-[10px] tracking-widest uppercase text-zinc-600 dark:text-zinc-400 font-medium truncate">Concierge</p>
                     </div>
                 </div>
                 <button
                     onClick={runChatDemo}
                     disabled={isDemoRunning || isGenerating}
-                    className="text-[10px] tracking-[0.1em] uppercase bg-white dark:bg-zinc-800 text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 font-semibold shadow-sm disabled:opacity-50"
+                    className="text-[9px] sm:text-[10px] shrink-0 tracking-[0.1em] uppercase bg-white dark:bg-zinc-800 text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100 px-3 sm:px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all flex items-center gap-1.5 sm:gap-2 font-semibold shadow-sm disabled:opacity-50"
                 >
-                    <Play className="w-3 h-3 fill-current" />
-                    {isDemoRunning ? "Running..." : "Play Demo"}
+                    <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
+                    <span className="hidden sm:inline">{isDemoRunning ? "Running..." : "Play Demo"}</span>
+                    <span className="sm:hidden">{isDemoRunning ? "..." : "Demo"}</span>
                 </button>
             </div>
 
@@ -126,8 +128,8 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                             animate={{ opacity: 1, y: 0 }}
                             className="flex flex-col items-center justify-center h-full text-center text-zinc-500 space-y-4"
                         >
-                            <div className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mb-4 shadow-sm">
-                                <Sparkles className="w-6 h-6 text-zinc-700 dark:text-zinc-300" />
+                            <div className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mb-4 shadow-sm overflow-hidden">
+                                <Image src="/icon.png" alt="Legani" width={40} height={40} className="object-cover" />
                             </div>
                             <p className="max-w-[280px] font-medium tracking-wide text-zinc-700 dark:text-zinc-300">Welcome to Legani. Please inquire about your stay.</p>
                         </motion.div>
@@ -141,8 +143,8 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                             className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             {m.role !== 'user' && (
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-1 shadow-sm">
-                                    <Sparkles className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-1 shadow-sm overflow-hidden">
+                                    <Image src="/icon.png" alt="Legani" width={20} height={20} className="object-cover" />
                                 </div>
                             )}
                             <div className={`px-6 py-4 max-w-[80%] text-[15px] leading-relaxed whitespace-pre-wrap font-medium shadow-sm border relative overflow-hidden ${m.role === 'user'
@@ -166,8 +168,8 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
                         >
                             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-1 shadow-md relative overflow-hidden group">
                                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0_340deg,rgba(161,161,170,0.6)_360deg)] opacity-80" />
-                                <div className="absolute inset-[1px] bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                                    <Sparkles className="w-4 h-4 text-zinc-700 dark:text-zinc-300 relative z-10" />
+                                <div className="absolute inset-[1px] bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center overflow-hidden z-10">
+                                    <Image src="/icon.png" alt="Legani" width={20} height={20} className="object-cover" />
                                 </div>
                             </div>
                             <div className="px-6 py-4 bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-3xl rounded-tl-sm flex items-center gap-3 shadow-lg relative overflow-hidden">

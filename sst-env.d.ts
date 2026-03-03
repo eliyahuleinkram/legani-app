@@ -10,6 +10,18 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "EvoApiKey": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "EvoApiUrl": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "EvoInstanceName": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "GoogleApiKey": {
       "type": "sst.sst.Secret"
       "value": string
