@@ -24,6 +24,7 @@ export async function POST(req: Request) {
 - Rooms & Beds Details:
 ${a.roomsAndBeds}
 - Amenities: ${a.amenities}
+- Device Instructions: ${a.deviceInstructions || ''}
 - Extra Info: ${a.extraInfo}
 `).join('\n');
         }

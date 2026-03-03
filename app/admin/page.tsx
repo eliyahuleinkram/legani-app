@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { Trash2, Plus, LogOut, Home, MapPin, Play, Sparkles, Building2 } from 'lucide-react';
+import { Trash2, Plus, LogOut, Home, MapPin, Play, Sparkles, Building2, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -19,9 +19,11 @@ function AdminDashboardContent() {
         capacity: '',
         roomsAndBeds: '',
         amenities: '',
+        deviceInstructions: '',
         extraInfo: ''
     });
     const [isDemoRunning, setIsDemoRunning] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const demoRunRef = useRef(false);
     const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/legani') ? '/demo/legani' : '';
 
@@ -59,6 +61,7 @@ function AdminDashboardContent() {
             normalize(apt.capacity) === normalize(data.capacity) &&
             normalize(apt.roomsAndBeds) === normalize(data.roomsAndBeds) &&
             normalize(apt.amenities) === normalize(data.amenities) &&
+            normalize(apt.deviceInstructions) === normalize(data.deviceInstructions) &&
             normalize(apt.extraInfo) === normalize(data.extraInfo)
         );
     };
@@ -74,7 +77,7 @@ function AdminDashboardContent() {
         const optimisticApt = { ...formData, id: `temp-${Date.now()}` };
         setApartments(prev => [...prev, optimisticApt]);
         const submittedData = formData;
-        setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', extraInfo: '' });
+        setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
 
         try {
             const res = await fetch(`${basePath}/api/apartments`, {
@@ -90,6 +93,52 @@ function AdminDashboardContent() {
         } catch (error) {
             console.error(error);
             fetchApartments();
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setIsAnalyzing(true);
+        try {
+            const base64Images = await Promise.all(
+                files.map(
+                    (file) =>
+                        new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        })
+                )
+            );
+
+            const res = await fetch(`${basePath}/api/analyze-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ images: base64Images })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setFormData(prev => ({
+                    ...prev,
+                    capacity: prev.capacity || data.capacity || '',
+                    roomsAndBeds: prev.roomsAndBeds || data.roomsAndBeds || '',
+                    amenities: prev.amenities || data.amenities || '',
+                    deviceInstructions: prev.deviceInstructions || data.deviceInstructions || '',
+                    extraInfo: prev.extraInfo || data.extraInfo || ''
+                }));
+            } else {
+                alert("Failed to analyze images. Please try again.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error analyzing images.");
+        } finally {
+            setIsAnalyzing(false);
+            e.target.value = '';
         }
     };
 
@@ -152,7 +201,7 @@ function AdminDashboardContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', extraInfo: '' });
+            setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
             await fetchApartments();
         };
 
@@ -160,6 +209,7 @@ function AdminDashboardContent() {
         await typeField("capacity", "2 Adults, 2 Kids");
         await typeField("roomsAndBeds", "Master bedroom features a King-size bed (Jewish beds that can separate). The main living area includes a premium pull-out sofa bed suitable for two children.");
         await typeField("amenities", "Private panoramic balcony overlooking Mt. Meron, indoor Jacuzzi, Kosher kitchenette, Shabbat hotplate (Plata), hot water urn, Nespresso machine, fast Wi-Fi.");
+        await typeField("deviceInstructions", "Jacuzzi takes 15 mins to heat up (instructions inside lid). The AC has a shabbos mode which runs continuously.");
         await typeField("extraInfo", "Emphasize the romantic atmosphere and amazing sunset views. If guests ask about accessibility, let them know there are two flights of stairs to reach the unit, so it is not wheelchair accessible. Only a 5-minute walk to the Artist Quarter.");
 
         await new Promise(r => setTimeout(r, 400));
@@ -168,6 +218,7 @@ function AdminDashboardContent() {
             capacity: "2 Adults, 2 Kids",
             roomsAndBeds: "Master bedroom features a King-size bed (Jewish beds that can separate). The main living area includes a premium pull-out sofa bed suitable for two children.",
             amenities: "Private panoramic balcony overlooking Mt. Meron, indoor Jacuzzi, Kosher kitchenette, Shabbat hotplate (Plata), hot water urn, Nespresso machine, fast Wi-Fi.",
+            deviceInstructions: "Jacuzzi takes 15 mins to heat up (instructions inside lid). The AC has a shabbos mode which runs continuously.",
             extraInfo: "Emphasize the romantic atmosphere and amazing sunset views. If guests ask about accessibility, let them know there are two flights of stairs to reach the unit, so it is not wheelchair accessible. Only a 5-minute walk to the Artist Quarter."
         });
 
@@ -177,6 +228,7 @@ function AdminDashboardContent() {
         await typeField("capacity", "4 Adults, 6 Kids");
         await typeField("roomsAndBeds", "3 bedrooms total. The master and second bedrooms each have two twin beds. The children's room has two sets of bunk beds and a pull-out trundle. A baby crib is available in the master closet.");
         await typeField("amenities", "Private historic stone courtyard, large dining table (seats 12), strict Kosher kitchen (separate meat and dairy sinks), washer and dryer, high chair, selection of Jewish board games.");
+        await typeField("deviceInstructions", "Washing machine requires pushing the door firmly until it clicks before starting. Heating is centralized and requires pressing the 'Boost' button on the living room wall for hot water.");
         await typeField("extraInfo", "Ideal for large religious families wanting an authentic Old City Safed experience. If guests ask about parking, inform them that cars cannot enter the narrow alleyways; they must park at the public lot near the Ari Ashkenazi Synagogue (a 3-minute walk away).");
 
         await new Promise(r => setTimeout(r, 400));
@@ -185,6 +237,7 @@ function AdminDashboardContent() {
             capacity: "4 Adults, 6 Kids",
             roomsAndBeds: "3 bedrooms total. The master and second bedrooms each have two twin beds. The children's room has two sets of bunk beds and a pull-out trundle. A baby crib is available in the master closet.",
             amenities: "Private historic stone courtyard, large dining table (seats 12), strict Kosher kitchen (separate meat and dairy sinks), washer and dryer, high chair, selection of Jewish board games.",
+            deviceInstructions: "Washing machine requires pushing the door firmly until it clicks before starting. Heating is centralized and requires pressing the 'Boost' button on the living room wall for hot water.",
             extraInfo: "Ideal for large religious families wanting an authentic Old City Safed experience. If guests ask about parking, inform them that cars cannot enter the narrow alleyways; they must park at the public lot near the Ari Ashkenazi Synagogue (a 3-minute walk away)."
         });
 
@@ -277,6 +330,34 @@ function AdminDashboardContent() {
                                     Add New Property
                                 </h3>
 
+                                <div className="mb-8 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 relative overflow-hidden group">
+                                    <div className="flex flex-col gap-4">
+                                        <div>
+                                            <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2 mb-1.5">
+                                                <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                                                AI Auto-Fill
+                                            </h4>
+                                            <p className="text-xs leading-relaxed font-medium text-indigo-700/80 dark:text-indigo-400/80">
+                                                Upload property photos to instantly extract details like capacity, rooms, and amenities without manual data entry.
+                                            </p>
+                                        </div>
+                                        <label className={`w-full mt-1 relative cursor-pointer bg-white dark:bg-zinc-950 px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-xs font-bold text-indigo-600 dark:text-indigo-400 shadow-sm transition-all hover:bg-indigo-50 dark:hover:bg-zinc-900 flex items-center justify-center gap-2 whitespace-nowrap ${isAnalyzing ? 'opacity-60 pointer-events-none' : ''}`}>
+                                            {isAnalyzing ? (
+                                                <span className="flex items-center gap-2">
+                                                    <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                                    Analyzing Image...
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-3.5 h-3.5" />
+                                                    Upload Images
+                                                </>
+                                            )}
+                                            <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="space-y-1.5">
                                         <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Property Name</label>
@@ -296,6 +377,11 @@ function AdminDashboardContent() {
                                     <div className="space-y-1.5">
                                         <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Key Amenities</label>
                                         <textarea id="admin-input-amenities" required value={formData.amenities} onChange={e => setFormData({ ...formData, amenities: e.target.value })} className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm font-medium outline-none focus:border-zinc-400 dark:focus:border-zinc-600 h-28 resize-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-600 rounded-xl" placeholder="e.g. Private Pool, Terrace, Kosher Kitchen..." />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Appliance & Device Instructions</label>
+                                        <textarea id="admin-input-deviceInstructions" value={formData.deviceInstructions} onChange={e => setFormData({ ...formData, deviceInstructions: e.target.value })} className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm font-medium outline-none focus:border-zinc-400 dark:focus:border-zinc-600 h-28 resize-none transition-colors placeholder-zinc-400 dark:placeholder-zinc-600 rounded-xl" placeholder="e.g. To turn on the AC, press the bottom button twice. Oven requires pre-heating..." />
                                     </div>
 
                                     <div className="space-y-1.5">
@@ -374,6 +460,14 @@ function AdminDashboardContent() {
                                                             </span>
                                                             <p className="font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">{apt.roomsAndBeds}</p>
                                                         </div>
+                                                        {apt.deviceInstructions && (
+                                                            <div className="space-y-1 pt-2">
+                                                                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                    Device Instructions
+                                                                </span>
+                                                                <p className="font-medium text-zinc-700 dark:text-zinc-300 bg-indigo-50/50 dark:bg-indigo-900/10 px-4 py-3 rounded-xl border border-indigo-100 dark:border-indigo-800/30">{apt.deviceInstructions}</p>
+                                                            </div>
+                                                        )}
                                                         {apt.extraInfo && (
                                                             <div className="space-y-1 pt-2">
                                                                 <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
