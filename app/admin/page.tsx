@@ -14,6 +14,7 @@ function AdminDashboardContent() {
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         name: '',
+        location: '',
         capacity: '',
         roomsAndBeds: '',
         amenities: '',
@@ -45,6 +46,7 @@ function AdminDashboardContent() {
         const normalize = (str?: string) => str ? str.trim().replace(/\s+/g, ' ').toLowerCase() : '';
         return apartments.some(apt =>
             normalize(apt.name) === normalize(data.name) &&
+            normalize(apt.location) === normalize(data.location) &&
             normalize(apt.capacity) === normalize(data.capacity) &&
             normalize(apt.roomsAndBeds) === normalize(data.roomsAndBeds) &&
             normalize(apt.amenities) === normalize(data.amenities) &&
@@ -64,7 +66,7 @@ function AdminDashboardContent() {
         const optimisticApt = { ...formData, id: `temp-${Date.now()}` };
         setApartments(prev => [...prev, optimisticApt]);
         const submittedData = formData;
-        setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
+        setFormData({ name: '', location: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
 
         try {
             const res = await fetch(`${basePath}/api/apartments`, {
@@ -111,6 +113,8 @@ function AdminDashboardContent() {
                 const data = await res.json();
                 setFormData(prev => ({
                     ...prev,
+                    name: prev.name || data.name || '',
+                    location: prev.location || data.location || '',
                     capacity: prev.capacity || data.capacity || '',
                     roomsAndBeds: prev.roomsAndBeds || data.roomsAndBeds || '',
                     amenities: prev.amenities || data.amenities || '',
@@ -188,11 +192,12 @@ function AdminDashboardContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            setFormData({ name: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
+            setFormData({ name: '', location: '', capacity: '', roomsAndBeds: '', amenities: '', deviceInstructions: '', extraInfo: '' });
             await fetchApartments();
         };
 
         await typeField("name", "The Mystic View Suite");
+        await typeField("location", "Safed, Artist Quarter");
         await typeField("capacity", "2 Adults, 2 Kids");
         await typeField("roomsAndBeds", "Master bedroom features a King-size bed (Jewish beds that can separate). The main living area includes a premium pull-out sofa bed suitable for two children.");
         await typeField("amenities", "Private panoramic balcony overlooking Mt. Meron, indoor Jacuzzi, Kosher kitchenette, Shabbat hotplate (Plata), hot water urn, Nespresso machine, fast Wi-Fi.");
@@ -202,6 +207,7 @@ function AdminDashboardContent() {
         await new Promise(r => setTimeout(r, 400));
         await submitForm({
             name: "The Mystic View Suite",
+            location: "Safed, Artist Quarter",
             capacity: "2 Adults, 2 Kids",
             roomsAndBeds: "Master bedroom features a King-size bed (Jewish beds that can separate). The main living area includes a premium pull-out sofa bed suitable for two children.",
             amenities: "Private panoramic balcony overlooking Mt. Meron, indoor Jacuzzi, Kosher kitchenette, Shabbat hotplate (Plata), hot water urn, Nespresso machine, fast Wi-Fi.",
@@ -212,6 +218,7 @@ function AdminDashboardContent() {
         await new Promise(r => setTimeout(r, 1000));
 
         await typeField("name", "The Old City Family Arches");
+        await typeField("location", "Safed, Old City");
         await typeField("capacity", "4 Adults, 6 Kids");
         await typeField("roomsAndBeds", "3 bedrooms total. The master and second bedrooms each have two twin beds. The children's room has two sets of bunk beds and a pull-out trundle. A baby crib is available in the master closet.");
         await typeField("amenities", "Private historic stone courtyard, large dining table (seats 12), strict Kosher kitchen (separate meat and dairy sinks), washer and dryer, high chair, selection of Jewish board games.");
@@ -221,6 +228,7 @@ function AdminDashboardContent() {
         await new Promise(r => setTimeout(r, 400));
         await submitForm({
             name: "The Old City Family Arches",
+            location: "Safed, Old City",
             capacity: "4 Adults, 6 Kids",
             roomsAndBeds: "3 bedrooms total. The master and second bedrooms each have two twin beds. The children's room has two sets of bunk beds and a pull-out trundle. A baby crib is available in the master closet.",
             amenities: "Private historic stone courtyard, large dining table (seats 12), strict Kosher kitchen (separate meat and dairy sinks), washer and dryer, high chair, selection of Jewish board games.",
@@ -346,6 +354,11 @@ function AdminDashboardContent() {
                                     </div>
 
                                     <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Location</label>
+                                        <input id="admin-input-location" required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm font-medium outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors placeholder-zinc-400 dark:placeholder-zinc-600 rounded-xl" placeholder="e.g. Safed, Artist Quarter" />
+                                    </div>
+
+                                    <div className="space-y-1.5">
                                         <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Capacity</label>
                                         <input id="admin-input-capacity" required value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm font-medium outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors placeholder-zinc-400 dark:placeholder-zinc-600 rounded-xl" placeholder="e.g. 2 adults, 3 kids" />
                                     </div>
@@ -423,11 +436,19 @@ function AdminDashboardContent() {
                                                     </div>
 
                                                     <div className="space-y-6 text-[13px] leading-relaxed">
-                                                        <div className="space-y-1">
-                                                            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                                                Capacity
-                                                            </span>
-                                                            <p className="font-medium text-zinc-700 dark:text-zinc-300">{apt.capacity}</p>
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-1">
+                                                                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                    Location
+                                                                </span>
+                                                                <p className="font-medium text-zinc-700 dark:text-zinc-300">{apt.location}</p>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                    Capacity
+                                                                </span>
+                                                                <p className="font-medium text-zinc-700 dark:text-zinc-300">{apt.capacity}</p>
+                                                            </div>
                                                         </div>
                                                         <div className="space-y-1">
                                                             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
