@@ -16,7 +16,12 @@ export async function GET() {
             TableName: Resource.Apartments.name,
         });
         const response = await docClient.send(command);
-        return NextResponse.json(response.Items || []);
+
+        // Sort items by id (which is a timestamp) to maintain consistent order
+        const items = response.Items || [];
+        items.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+        return NextResponse.json(items);
     } catch (error) {
         console.error("GET error", error);
         return NextResponse.json({ error: 'Failed to read data' }, { status: 500 });

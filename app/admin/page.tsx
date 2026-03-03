@@ -8,10 +8,8 @@ import Image from 'next/image';
 
 function AdminDashboardContent() {
     const searchParams = useSearchParams();
-    const urlMobilePreset = searchParams.get('mobile') === 'true';
     const isDemo = searchParams.get('demo') === 'true';
 
-    const [isMobileDevice, setIsMobileDevice] = useState(false);
     const [apartments, setApartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -26,17 +24,6 @@ function AdminDashboardContent() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const demoRunRef = useRef(false);
     const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo/legani') ? '/demo/legani' : '';
-
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobileDevice(window.innerWidth <= 860);
-        };
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    const isMobileView = urlMobilePreset || isMobileDevice;
 
     useEffect(() => {
         fetchApartments();
@@ -252,39 +239,37 @@ function AdminDashboardContent() {
     }, [isDemo]);
 
     return (
-        <div className={`min-h-[100dvh] bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex relative overflow-hidden transition-colors duration-500 ${isMobileView ? 'max-w-[430px] mx-auto shadow-2xl bg-white dark:bg-zinc-950' : ''}`}>
+        <div className="min-h-[100dvh] bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans flex relative overflow-hidden transition-colors duration-500">
 
             {/* Sidebar */}
-            {!isMobileView && (
-                <div className="w-64 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-6 flex flex-col z-10 relative transition-colors duration-500">
-                    <div className="flex items-center gap-3 mb-16">
-                        <div className="flex items-center justify-center w-8 h-8 bg-zinc-900 dark:bg-white overflow-hidden shadow-sm rounded-xl">
-                            <Image src="/icon.png" alt="Legani Logo" width={20} height={20} className="object-contain invert dark:invert-0" />
-                        </div>
-                        <h1 className="text-sm font-bold tracking-wide text-zinc-900 dark:text-white">Partner Portal</h1>
+            <div className="hidden lg:flex w-64 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-6 flex-col z-10 relative transition-colors duration-500">
+                <div className="flex items-center gap-3 mb-16">
+                    <div className="flex items-center justify-center w-8 h-8 bg-zinc-900 dark:bg-white overflow-hidden shadow-sm rounded-xl">
+                        <Image src="/icon.png" alt="Legani Logo" width={20} height={20} className="object-contain invert dark:invert-0" />
                     </div>
+                    <h1 className="text-sm font-bold tracking-wide text-zinc-900 dark:text-white">Partner Portal</h1>
+                </div>
 
-                    <div className="space-y-1 mb-8">
-                        <p className="text-[11px] font-bold tracking-wider uppercase text-zinc-400 dark:text-zinc-500 mb-4 px-2">Knowledge Base</p>
-                        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
-                            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Active Properties</span>
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{apartments.length}</span>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto">
-                        <div className="p-4 bg-zinc-100 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
-                            The AI concierge automatically expands its knowledge when you add or update properties here.
-                        </div>
+                <div className="space-y-1 mb-8">
+                    <p className="text-[11px] font-bold tracking-wider uppercase text-zinc-400 dark:text-zinc-500 mb-4 px-2">Knowledge Base</p>
+                    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Active Properties</span>
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{apartments.length}</span>
                     </div>
                 </div>
-            )}
+
+                <div className="mt-auto">
+                    <div className="p-4 bg-zinc-100 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                        The AI concierge automatically expands its knowledge when you add or update properties here.
+                    </div>
+                </div>
+            </div>
 
             {/* Main Content */}
-            <main className={`flex-1 overflow-y-auto z-10 relative scroll-smooth bg-white dark:bg-zinc-950 ${isMobileView ? 'p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]' : 'p-12 lg:p-16'}`}>
+            <main className="flex-1 overflow-y-auto z-10 relative scroll-smooth bg-white dark:bg-zinc-950 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] md:p-12 lg:p-16">
                 <div className="max-w-[1400px] mx-auto space-y-10">
 
-                    <header className={isMobileView ? 'text-center mb-8' : 'flex items-end justify-between mb-12'}>
+                    <header className="text-center mb-8 flex flex-col md:flex-row md:items-end md:justify-between md:mb-12 md:text-left gap-6">
                         <div>
                             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white mb-3">
                                 Property Portfolio
@@ -293,35 +278,31 @@ function AdminDashboardContent() {
                                 Manage the real-time knowledge base for the Legani Concierge AI.
                             </p>
                         </div>
-                        {!isMobileView && (
-                            <button
-                                type="button"
-                                onClick={runAdminDemo}
-                                disabled={isDemoRunning}
-                                className="text-xs font-bold tracking-wide bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 px-6 py-2.5 rounded-full shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                {isDemoRunning ? "Running Demo..." : "Run Demo"}
-                            </button>
-                        )}
-                    </header>
-
-                    {isMobileView && (
                         <button
                             type="button"
                             onClick={runAdminDemo}
                             disabled={isDemoRunning}
-                            className="w-full mb-8 text-xs font-bold tracking-widest uppercase bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-5 py-3 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            className="hidden md:flex text-xs font-bold tracking-wide bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 px-6 py-2.5 rounded-full shadow-sm transition-all items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Play className="w-3.5 h-3.5 fill-current" />
-                            {isDemoRunning ? "Running Demo..." : "Run AI Training Demo"}
+                            {isDemoRunning ? "Running Demo..." : "Run Demo"}
                         </button>
-                    )}
+                    </header>
 
-                    <div className={`grid grid-cols-1 gap-10 xl:gap-14 ${isMobileView ? '' : 'lg:grid-cols-12'}`}>
+                    <button
+                        type="button"
+                        onClick={runAdminDemo}
+                        disabled={isDemoRunning}
+                        className="flex md:hidden w-full mb-8 text-xs font-bold tracking-widest uppercase bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-5 py-3 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 transition-all items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        {isDemoRunning ? "Running Demo..." : "Run AI Training Demo"}
+                    </button>
+
+                    <div className="grid grid-cols-1 gap-10 xl:gap-14 lg:grid-cols-12">
 
                         {/* Form Section */}
-                        <div className={`${isMobileView ? '' : 'lg:col-span-5 xl:col-span-4'}`}>
+                        <div className="lg:col-span-5 xl:col-span-4">
                             <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 md:p-8 rounded-2xl sticky top-12">
                                 <h3 className="font-bold text-sm tracking-wide mb-8 flex items-center text-zinc-900 dark:text-white pb-4 border-b border-zinc-200 dark:border-zinc-800">
                                     <div className="w-6 h-6 bg-zinc-900 dark:bg-white flex items-center justify-center mr-3 rounded-xl shadow-sm">
@@ -399,7 +380,7 @@ function AdminDashboardContent() {
                         </div>
 
                         {/* List Section */}
-                        <div className={`${isMobileView ? '' : 'lg:col-span-7 xl:col-span-8'}`}>
+                        <div className="lg:col-span-7 xl:col-span-8">
                             <div className="flex items-center justify-between mb-8 pb-4 border-b border-zinc-200 dark:border-zinc-800">
                                 <h3 className="font-bold text-lg tracking-wide text-zinc-900 dark:text-white">Active Properties</h3>
                             </div>
@@ -429,7 +410,7 @@ function AdminDashboardContent() {
                                             >
                                                 <button
                                                     onClick={() => handleDelete(apt.id)}
-                                                    className={`absolute top-6 right-6 p-2 text-zinc-400 hover:text-white hover:bg-zinc-900 dark:hover:bg-zinc-800 rounded-xl transition-all ${isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                                    className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-white hover:bg-zinc-900 dark:hover:bg-zinc-800 rounded-xl transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                                     title="Remove record"
                                                 >
                                                     <Trash2 className="w-4 h-4" />

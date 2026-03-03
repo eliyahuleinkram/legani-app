@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Send, Bot, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
+export function Chat({ fullScreen = false }: { fullScreen?: boolean }) {
     // @ts-ignore: Next.js typing conflicts with bleeding-edge AI SDK types
     const { messages, append, sendMessage, isLoading, status } = useChat();
     const [input, setInput] = useState('');
@@ -96,9 +96,9 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
     }, []);
 
     return (
-        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans ${isMobileView ? 'h-[100dvh] max-w-[430px] mx-auto rounded-none border-none shadow-none text-[15px]' : 'h-[500px] sm:h-[550px] md:h-[600px] max-w-2xl border border-zinc-200 dark:border-zinc-700 rounded-[2rem] shadow-2xl overflow-hidden'}`}>
+        <div className={`flex flex-col w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl font-sans overflow-hidden text-[15px] sm:text-base ${fullScreen ? 'h-[100dvh] max-w-none rounded-none border-none shadow-none' : 'h-[100dvh] max-w-[430px] mx-auto rounded-none border-none shadow-none md:h-[500px] lg:h-[600px] md:max-w-2xl md:border md:border-zinc-200 md:dark:border-zinc-700 md:rounded-[2rem] md:shadow-2xl'}`}>
             {/* Header */}
-            <div className={`flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 ${isMobileView ? 'px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))]' : 'px-4 sm:px-8 py-4 sm:py-6'}`}>
+            <div className={`flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-950/50 px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 sm:py-6 sm:pt-6`}>
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="flex items-center justify-center shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
                         <Image src="/icon.png" alt="Legani" width={24} height={24} className="object-cover w-5 h-5 sm:w-6 sm:h-6" />
@@ -120,7 +120,7 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
             </div>
 
             {/* Messages Area */}
-            <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto space-y-6 bg-zinc-50/50 dark:bg-black/20 ${isMobileView ? 'p-4' : 'p-6'}`}>
+            <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto space-y-6 bg-zinc-50/50 dark:bg-black/20 p-4 sm:p-6`}>
                 <AnimatePresence>
                     {messages.length === 0 && (
                         <motion.div
@@ -184,7 +184,7 @@ export function Chat({ isMobileView = false }: { isMobileView?: boolean }) {
             </div>
 
             {/* Input Area */}
-            <div className={`bg-white/50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800 ${isMobileView ? 'p-4 pb-[max(1rem,env(safe-area-inset-bottom))]' : 'p-6'}`}>
+            <div className={`bg-white/50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-6`}>
                 <form onSubmit={(e) => {
                     e.preventDefault();
                     if (!input.trim() || isGenerating) return;
