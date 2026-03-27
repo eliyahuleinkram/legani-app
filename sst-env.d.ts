@@ -26,11 +26,19 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "InsightSnapshots": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "MyWeb": {
       "type": "sst.aws.Nextjs"
       "url": string
     }
     "PromptCache": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
+    "SharedBookmarks": {
       "name": string
       "type": "sst.aws.Dynamo"
     }

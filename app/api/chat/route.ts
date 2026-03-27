@@ -1,113 +1,58 @@
-import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
-import { leganiContext } from '../../../data/legani-context';
-import { Resource } from "sst";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
-import crypto from "crypto";
+import { GoogleGenAI } from "@google/genai";
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+export const maxDuration = 30;
+
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY });
 
 export async function POST(req: Request) {
-    const { messages } = await req.json();
+  const { messages, data } = await req.json();
 
-    let dynamicApartments = "No specific apartment data has been added yet.";
-    try {
-        const command = new ScanCommand({ TableName: Resource.Apartments.name });
-        const response = await docClient.send(command);
-        const apartments = response.Items || [];
-        if (apartments.length > 0) {
-            dynamicApartments = "Here are the details of our active apartments:\n\n" + apartments.map((a: any) => `
-- Name: ${a.name}
-- Capacity: ${a.capacity}
-- Rooms & Beds Details:
-${a.roomsAndBeds}
-- Amenities: ${a.amenities}
-- Device Instructions: ${a.deviceInstructions || ''}
-- Extra Info: ${a.extraInfo}
-`).join('\n');
-        }
-    } catch (e) {
-        console.error("Failed to read dynamic apartments", e);
+  const userNusach = data?.nusach || "General";
+  const userChassidus = data?.chassidus || "None";
+  const userLanguage = data?.language || "English";
+  const currentVerse = data?.verse || "Unknown verse";
+
+  const systemPrompt = `You are a deeply spiritual, learned, and warm guide.
+The user is meditating on the following verse: "${currentVerse}".
+They follow the ${userNusach} nusach, and their spiritual lens is ${userChassidus}.
+Their preferred language is ${userLanguage}.
+
+Your goal is to provide a brief (1-3 paragraphs maximum), incredibly meaningful, soulful, and poetic explanation of this specific verse. 
+Do not give a generic summary. Go deep. Connect it to their soul, to their struggles, to the cosmos.
+If their lens is Chabad, weave in concepts of Chabad Chassidus (e.g., Bittul, the Rebbe's teachings, Tanya).
+If their lens is Breslov, weave in concepts of Hitbodedut, joy, Rebbe Nachman's teachings.
+Keep the tone warm, loving, nourishing, and majestic. Use beautiful prose.`;
+
+  const prompt = messages?.[messages.length - 1]?.content || "";
+
+  const responseStream = await ai.models.generateContentStream({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      systemInstruction: systemPrompt,
     }
+  });
 
-    const enhancedSystemPrompt = `
-${leganiContext}
-
---- DYNAMIC INVENTORY & APARTMENT DATA FROM CMS ---
-${dynamicApartments}
---- END DYNAMIC DATA ---
-
-Answer any specific guest questions using exactly this dynamic data. Do not hallucinate amenities not listed here.
-`;
-
-    const modelMessages = messages.map((m: any) => ({
-        role: m.role,
-        content: m.content || (m.parts ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : ''),
-    }));
-
-    // Cache key incorporates both the conversation history and the dynamic inventory data
-    const rawCacheKey = JSON.stringify({ messages: modelMessages, dynamicApartments });
-    // Hash the cache key since DynamoDB Hash Keys have a 2048 byte limit, and history can get long.
-    const cacheKey = crypto.createHash('sha256').update(rawCacheKey).digest('hex');
-
-    try {
-        const getCmd = new GetCommand({
-            TableName: Resource.PromptCache.name,
-            Key: { cacheKey }
-        });
-        const cacheResponse = await docClient.send(getCmd);
-
-        if (cacheResponse.Item && cacheResponse.Item.response) {
-            const cachedText = cacheResponse.Item.response;
-            const messageId = crypto.randomUUID();
-
-            const encoder = new TextEncoder();
-            const stream = new ReadableStream({
-                start(controller) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: messageId })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: messageId, delta: cachedText })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: messageId })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish-step" })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
-                    controller.close();
-                }
-            });
-            return new Response(stream, {
-                headers: {
-                    'Content-Type': 'text/event-stream; charset=utf-8',
-                    'x-vercel-ai-ui-message-stream': 'v1'
-                }
-            });
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of responseStream) {
+          if (chunk.text) {
+            controller.enqueue(encoder.encode(chunk.text));
+          }
         }
-    } catch (e) {
-        console.error("Cache read failed", e);
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
     }
+  });
 
-    const result = streamText({
-        model: google('gemini-3-flash-preview'),
-        system: enhancedSystemPrompt,
-        messages: modelMessages,
-        onFinish: async ({ text }) => {
-            // Save the complete response to the cache once stream finishes
-            try {
-                // TTL of 7 days (60 * 60 * 24 * 7 seconds)
-                const ttl = Math.floor(Date.now() / 1000) + (604800);
-                const putCmd = new PutCommand({
-                    TableName: Resource.PromptCache.name,
-                    Item: {
-                        cacheKey,
-                        response: text,
-                        ttl
-                    }
-                });
-                await docClient.send(putCmd);
-            } catch (e) {
-                console.error("Cache write failed", e);
-            }
-        }
-    });
-
-    return result.toUIMessageStreamResponse();
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain",
+      "Transfer-Encoding": "chunked",
+    },
+  });
 }
