@@ -105,7 +105,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           <div className="track-hero">
             {track.image && (
               <div className="song-image-container">
-                <img src={track.image} alt={track.title} className="song-image" />
+                <img key={track.image} src={track.image} alt={track.title} className="song-image" />
               </div>
             )}
             <h2 className="track-title">{track.title}</h2>
@@ -259,6 +259,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
         .song-image-container {
           width: 100%;
           max-width: 250px;
+          aspect-ratio: 1;
           margin-bottom: 2rem;
           display: flex;
           justify-content: center;
@@ -268,11 +269,12 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
 
         .song-image {
           width: 100%;
-          height: auto;
+          height: 100%;
           mix-blend-mode: multiply;
           object-fit: contain;
           opacity: 0.85;
           filter: grayscale(100%);
+          color: transparent;
         }
 
         .track-title {
@@ -351,12 +353,9 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
 
         @media (max-width: 768px) {
           .panel {
-            height: 95vh;
+            height: 85vh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
-          }
-          .header-left .icon-btn {
-            display: none;
           }
           .audio-content {
             padding: 1.5rem 2rem 4rem;

@@ -3,16 +3,20 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { InsightPanel } from "../../components/InsightPanel";
 import { GlobalAudioButton } from "../../components/AudioContext";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 
 // Mock data (keep exactly the same)
-const siddurData: Record<string, { title: string, subtitle?: string, verses: { id: string, hebrew: string, english: string, isSection?: boolean, isImage?: boolean, imageUrl?: string }[] }> = {
+const siddurData: Record<string, { title: string, subtitle?: string, parts?: { id: string, title: string, verses: { id: string, hebrew: string, english: string, isSection?: boolean, isImage?: boolean, imageUrl?: string }[] }[], verses?: { id: string, hebrew: string, english: string, isSection?: boolean, isImage?: boolean, imageUrl?: string }[] }> = {
   morning: {
-    title: "Awakening the Soul",
-    subtitle: "The dawn of prayer",
-    verses: [
+    title: "Morning Prayers",
+    subtitle: "Shacharis",
+    parts: [
+      {
+        id: "morning_blessings",
+        title: "Awakening the Soul",
+        verses: [
       { id: "sec1", hebrew: "", english: "Awakening the Soul", isImage: true, imageUrl: "/images/morning_sun.png" },
       { id: "v1_1", hebrew: "מוֹדֶה אֲנִי לְפָנֶֽיךָ מֶֽלֶךְ חַי וְקַיָּם שֶׁהֶחֱזַֽרְתָּ בִּי נִשְׁמָתִי בְּחֶמְלָה. רַבָּה אֱמוּנָתֶֽךָ:", english: "I offer thanks to You, living and eternal King, for You have mercifully restored my soul within me; Your faithfulness is great." },
       { id: "v2_1", hebrew: "בָּרוּךְ אַתָּה יְיָ אֱלֹהֵֽינוּ מֶֽלֶךְ הָעוֹלָם אֲשֶׁר קִדְּשָֽׁנוּ בְּמִצְוֹתָיו, וְצִוָּנוּ עַל נְטִילַת יָדָֽיִם:", english: "Blessed are You, Lord our God, King of the universe, who has sanctified us with His commandments, and commanded us concerning the washing of the hands." },
@@ -71,6 +75,28 @@ const siddurData: Record<string, { title: string, subtitle?: string, verses: { i
       { id: "v3_4b", hebrew: "יִרְוְיֻן מִדֶּֽשֶׁן בֵּיתֶֽךָ וְנַֽחַל עֲדָנֶֽיךָ תַשְׁקֵם:", english: "They will be saturated with the abundance of Your house, and You will give them to drink from the stream of Your delights." },
       { id: "v3_4c", hebrew: "כִּי־עִמְּךָ מְקוֹר חַיִּים, בְּאוֹרְךָ נִרְאֶה־אוֹר:", english: "For with You is the source of life; in Your light we see light." },
       { id: "v3_4d", hebrew: "מְשֹׁךְ חַסְדְּךָ לְיֹדְעֶֽיךָ וְצִדְקָתְךָ לְיִשְׁרֵי־לֵב:", english: "Draw out Your lovingkindness to those who know You, and Your righteousness to the upright in heart." }
+        ]
+      },
+      {
+        id: "pesukei_dzimra",
+        title: "Verses of Praise",
+        verses: [{ id: "pd1", hebrew: "", english: "Coming soon." }]
+      },
+      {
+        id: "shema",
+        title: "Shema & Blessings",
+        verses: [{ id: "sh1", hebrew: "", english: "Coming soon." }]
+      },
+      {
+        id: "amidah",
+        title: "The Amidah",
+        verses: [{ id: "am1", hebrew: "", english: "Coming soon." }]
+      },
+      {
+        id: "concluding",
+        title: "Concluding Prayers",
+        verses: [{ id: "cp1", hebrew: "", english: "Coming soon." }]
+      }
     ]
   },
   afternoon: {
@@ -101,17 +127,43 @@ function SiddurViewContent() {
   const categoryParam = typeof params?.category === 'string' ? params.category : "morning";
   const selectedTefillah = siddurData[categoryParam] || siddurData["morning"];
 
+  const [activePartId, setActivePartId] = useState("");
+  const [partsMenuOpen, setPartsMenuOpen] = useState(false);
   const [activeVerse, setActiveVerse] = useState<{ id: string, hebrew: string, english: string } | null>(null);
   const [languagePref, setLanguagePref] = useState("English & Hebrew");
   const [scrolled, setScrolled] = useState(false);
   const searchParams = useSearchParams();
   const verseQuery = searchParams.get("v");
 
+  const activePart = selectedTefillah.parts?.find(p => p.id === activePartId) || selectedTefillah.parts?.[0];
+  const currentVerses = activePart ? activePart.verses : (selectedTefillah.verses || []);
+
+  useEffect(() => {
+    if (selectedTefillah.parts && selectedTefillah.parts.length > 0) {
+      if (!selectedTefillah.parts.find(p => p.id === activePartId)) {
+        setActivePartId(selectedTefillah.parts[0].id);
+      }
+    } else {
+      setActivePartId("");
+    }
+  }, [categoryParam, selectedTefillah.parts]);
+
   useEffect(() => {
     if (verseQuery && selectedTefillah) {
-      const verseToDeepLink = selectedTefillah.verses.find((v) => v.id === verseQuery);
-      if (verseToDeepLink) {
-        setTimeout(() => setActiveVerse(verseToDeepLink), 300);
+      if (selectedTefillah.parts) {
+        let foundPart = selectedTefillah.parts.find(p => p.verses.some(v => v.id === verseQuery));
+        if (foundPart) {
+          setActivePartId(foundPart.id);
+          const verseToDeepLink = foundPart.verses.find(v => v.id === verseQuery);
+          if (verseToDeepLink) {
+            setTimeout(() => setActiveVerse(verseToDeepLink), 300);
+          }
+        }
+      } else if (selectedTefillah.verses) {
+        const verseToDeepLink = selectedTefillah.verses.find((v) => v.id === verseQuery);
+        if (verseToDeepLink) {
+          setTimeout(() => setActiveVerse(verseToDeepLink), 300);
+        }
       }
     }
   }, [verseQuery, selectedTefillah]);
@@ -130,7 +182,14 @@ function SiddurViewContent() {
           <Link href="/home" className="zen-back-link group" aria-label="Go back">
             <ArrowLeft size={20} strokeWidth={1} className="back-icon group-hover:-translate-x-1 transition-transform" />
           </Link>
-          <span className="zen-nav-title">{selectedTefillah.title}</span>
+          {selectedTefillah.parts && selectedTefillah.parts.length > 1 ? (
+            <button className="zen-nav-title interactive-nav-title group" onClick={() => setPartsMenuOpen(true)}>
+              {selectedTefillah.title}
+              <ChevronDown size={14} className="nav-title-icon group-hover:translate-y-0.5 transition-transform" />
+            </button>
+          ) : (
+            <span className="zen-nav-title">{selectedTefillah.title}</span>
+          )}
           <div className="spacer">
             <GlobalAudioButton />
           </div>
@@ -140,11 +199,21 @@ function SiddurViewContent() {
       <div className="zen-content">
         <header className="zen-header animate-fade-in">
           <h1 className="zen-main-title">{selectedTefillah.title}</h1>
-          {selectedTefillah.subtitle && <p className="zen-main-subtitle">{selectedTefillah.subtitle}</p>}
+          {selectedTefillah.parts && selectedTefillah.parts.length > 1 ? (
+             <button 
+               className="zen-part-selector group"
+               onClick={() => setPartsMenuOpen(true)}
+             >
+               <span className="part-selector-text">{activePart?.title || selectedTefillah.subtitle}</span>
+               <ChevronDown size={14} className="part-selector-icon group-hover:translate-y-0.5 transition-transform" />
+             </button>
+          ) : (
+             selectedTefillah.subtitle && <p className="zen-main-subtitle">{selectedTefillah.subtitle}</p>
+          )}
         </header>
 
         <div className="zen-verses">
-          {selectedTefillah.verses.map((verse, index) => {
+          {currentVerses.map((verse, index) => {
             if (verse.isImage) {
               return (
                 <div key={verse.id} className="zen-verse-wrapper">
@@ -185,7 +254,7 @@ function SiddurViewContent() {
                   </div>
                 </div>
                 
-                {index < selectedTefillah.verses.length - 1 && selectedTefillah.verses[index + 1]?.isSection !== true && (
+                {index < currentVerses.length - 1 && currentVerses[index + 1]?.isSection !== true && (
                   <div 
                     className="verse-separator animate-fade-in"
                     style={{ animationDelay: `${index * 0.1 + 0.2}s` }}
@@ -199,13 +268,39 @@ function SiddurViewContent() {
         </div>
       </div>
 
+      {partsMenuOpen && selectedTefillah.parts && (
+        <div className="parts-overlay animate-fade-in" onClick={() => setPartsMenuOpen(false)}>
+          <div className="parts-menu-content" onClick={e => e.stopPropagation()}>
+            <button className="parts-close-btn" onClick={() => setPartsMenuOpen(false)}>
+              <X size={24} strokeWidth={1} />
+            </button>
+            <h3 className="parts-menu-title">Select Part</h3>
+            <div className="parts-list">
+              {selectedTefillah.parts.map(p => (
+                <button 
+                  key={p.id} 
+                  className={`part-menu-item ${activePartId === p.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setActivePartId(p.id);
+                    setPartsMenuOpen(false);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                   {p.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <InsightPanel 
         isOpen={!!activeVerse}
         onClose={() => setActiveVerse(null)}
         verseId={activeVerse?.id || ""}
         verseTextHebrew={activeVerse?.hebrew || ""}
         verseTextEnglish={activeVerse?.english || ""}
-        dividerImageUrl={activeVerse ? `/images/verse_divider_${['wave', 'stream', 'horizon', 'mountain'][Math.max(0, selectedTefillah.verses.findIndex(v => v.id === activeVerse.id)) % 4]}.png?v=fixed` : undefined}
+        dividerImageUrl={activeVerse ? `/images/verse_divider_${['wave', 'stream', 'horizon', 'mountain'][Math.max(0, currentVerses.findIndex(v => v.id === activeVerse.id)) % 4]}.png?v=fixed` : undefined}
       />
 
       <style jsx>{`
@@ -280,6 +375,29 @@ function SiddurViewContent() {
           opacity: 1;
           transform: translateY(0);
         }
+
+        .interactive-nav-title {
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-family: inherit;
+        }
+
+        .interactive-nav-title:hover {
+          color: var(--text-secondary);
+        }
+
+        .nav-title-icon {
+          color: var(--text-tertiary);
+          transition: transform var(--transition-fast), color var(--transition-fast);
+        }
+
+        .interactive-nav-title:hover .nav-title-icon {
+          color: var(--text-primary);
+        }
         
         .spacer {
           justify-self: end;
@@ -297,7 +415,7 @@ function SiddurViewContent() {
         
         .zen-header {
           text-align: center;
-          margin-bottom: 8rem;
+          margin-bottom: 5rem;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -318,6 +436,109 @@ function SiddurViewContent() {
           letter-spacing: 0.15em;
           text-transform: uppercase;
           margin-top: 1rem;
+        }
+
+        .zen-part-selector {
+          background: none;
+          border: none;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: 1rem;
+          cursor: pointer;
+          font-family: var(--font-serif);
+          font-size: 1.15rem;
+          color: var(--text-secondary);
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          transition: all var(--transition-normal);
+          padding: 0.5rem 1rem;
+        }
+
+        .zen-part-selector:hover {
+          color: var(--text-primary);
+        }
+
+        .part-selector-icon {
+          color: var(--text-tertiary);
+          transition: transform var(--transition-fast), color var(--transition-fast);
+        }
+
+        .zen-part-selector:hover .part-selector-icon {
+          color: var(--text-primary);
+        }
+
+        .parts-overlay {
+          position: fixed;
+          inset: 0;
+          background: var(--bg-primary);
+          z-index: 200;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .parts-menu-content {
+          width: 90%;
+          max-width: 400px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+        }
+
+        .parts-close-btn {
+          position: absolute;
+          top: -4rem;
+          color: var(--text-tertiary);
+          background: none;
+          border: none;
+          cursor: pointer;
+          transition: color var(--transition-fast);
+        }
+
+        .parts-close-btn:hover { 
+          color: var(--text-primary); 
+        }
+
+        .parts-menu-title {
+          font-family: var(--font-serif);
+          font-size: 0.85rem;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          color: var(--text-tertiary);
+          margin-bottom: 3rem;
+        }
+
+        .parts-list {
+          display: flex;
+          flex-direction: column;
+          gap: 2.5rem;
+          width: 100%;
+          align-items: center;
+        }
+
+        .part-menu-item {
+          background: none;
+          border: none;
+          font-family: var(--font-serif);
+          font-size: 1.25rem;
+          font-weight: 300;
+          letter-spacing: 0.05em;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          padding: 0.5rem;
+          text-transform: uppercase;
+          text-align: center;
+        }
+
+        .part-menu-item:hover {
+          color: var(--text-primary);
+        }
+
+        .part-menu-item.active {
+          color: var(--text-primary);
         }
         
         .zen-hairline {

@@ -292,7 +292,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           left: 50%;
           transform: translateX(-50%) translateY(100%);
           width: 100%;
-          height: 90vh;
+          height: 85vh;
           max-width: 800px;
           border-top-left-radius: 2rem;
           border-top-right-radius: 2rem;
@@ -531,7 +531,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
 
         @media (max-width: 768px) {
           .panel {
-            height: 95vh;
+            height: 85vh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
           }
