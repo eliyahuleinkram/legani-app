@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Play, Pause, SkipForward, SkipBack } from "lucide-react";
 
 export interface AudioTrack {
@@ -22,85 +22,134 @@ interface AudioPanelProps {
 }
 
 export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, onPrevTrack, onNextTrack }: AudioPanelProps) {
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [hasDragged, setHasDragged] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [isVisible, setIsVisible] = useState(false);
+
+  const panelRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setDragY(0);
-      setHasDragged(false);
-      setIsDragging(false);
-      setIsExpanded(false);
+  // All animation state lives in refs to avoid re-renders during gestures
+  const baseOffsetPx = useRef(0);
+  const isDragging = useRef(false);
+  const dragStartClientY = useRef(0);
+  const dragStartPanelY = useRef(0);
+  const currentPanelY = useRef(0);
+  const isClosingRef = useRef(false);
+
+  const setPanelY = useCallback((y: number, animated: boolean) => {
+    currentPanelY.current = y;
+    if (!panelRef.current) return;
+    panelRef.current.style.transition = animated
+      ? 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+      : 'none';
+    panelRef.current.style.transform = `translateX(-50%) translateY(${y}px)`;
+
+    if (overlayRef.current) {
+      overlayRef.current.style.opacity = String(Math.max(0, 1 - y / 500));
     }
-  }, [isOpen]);
+  }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Open lifecycle
+  useEffect(() => {
+    if (isOpen) {
+      isClosingRef.current = false;
+      baseOffsetPx.current = window.innerHeight * 0.11;
+      setIsVisible(true);
+      document.body.style.overflow = 'hidden';
+
+      requestAnimationFrame(() => {
+        setPanelY(window.innerHeight, false);
+        requestAnimationFrame(() => {
+          setPanelY(baseOffsetPx.current, true);
+        });
+      });
+    }
+  }, [isOpen, setPanelY]);
+
+  // Reset when closed externally
+  useEffect(() => {
+    if (!isOpen && isVisible) {
+      setIsVisible(false);
+      document.body.style.overflow = '';
+      if (contentRef.current) contentRef.current.scrollTop = 0;
+    }
+  }, [isOpen, isVisible]);
+
+  const close = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setPanelY(window.innerHeight, true);
+    if (overlayRef.current) {
+      overlayRef.current.style.transition = 'opacity 0.45s ease';
+      overlayRef.current.style.opacity = '0';
+    }
+    setTimeout(() => {
+      setIsVisible(false);
+      isClosingRef.current = false;
+      if (contentRef.current) contentRef.current.scrollTop = 0;
+      document.body.style.overflow = '';
+      onClose();
+    }, 480);
+  }, [onClose, setPanelY]);
+
+  // Scroll-driven expansion: panel follows scroll position smoothly
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (isDragging.current || isClosingRef.current) return;
+    const st = e.currentTarget.scrollTop;
+    const y = Math.max(0, baseOffsetPx.current - st);
+    setPanelY(y, false); // NO transition — sticks to scroll exactly
+  }, [setPanelY]);
+
+  // Touch drag for dismiss
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (contentRef.current && contentRef.current.contains(e.target as Node)) {
       if (contentRef.current.scrollTop > 0) return;
     }
-    setTouchStartY(e.touches[0].clientY);
-    setIsDragging(true);
-    setHasDragged(true);
-  };
+    isDragging.current = true;
+    dragStartClientY.current = e.touches[0].clientY;
+    dragStartPanelY.current = currentPanelY.current;
+    if (panelRef.current) panelRef.current.style.transition = 'none';
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY === null || !isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - touchStartY;
-    
-    if (deltaY < -30 && !isExpanded) {
-      setIsExpanded(true);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const delta = e.touches[0].clientY - dragStartClientY.current;
+
+    if (contentRef.current && contentRef.current.contains(e.target as Node)) {
+      if (delta < 0) { isDragging.current = false; return; }
+      if (contentRef.current.scrollTop > 0) { isDragging.current = false; return; }
     }
-    
-    // Smooth drag down, slight resistance drag up
-    setDragY(deltaY > 0 ? deltaY : Math.max(deltaY * 0.2, -20));
-  };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    setIsDragging(false);
-    if (touchStartY === null) return;
-    
-    // Threshold to close
-    if (dragY > 100) {
-      onClose();
-      setTimeout(() => {
-        setDragY(0);
-        setIsExpanded(false);
-      }, 300);
+    let newY = dragStartPanelY.current + delta;
+    if (newY < 0) newY = newY * 0.12; // rubber band
+    setPanelY(newY, false);
+  }, [setPanelY]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    if (currentPanelY.current > 150) {
+      close();
     } else {
-      setDragY(0);
-      if (dragY > 40 && isExpanded) {
-        setIsExpanded(false);
-      }
+      // Snap to scroll-derived position
+      const scrollTop = contentRef.current?.scrollTop || 0;
+      const targetY = Math.max(0, baseOffsetPx.current - scrollTop);
+      setPanelY(targetY, true);
     }
-    setTouchStartY(null);
-  };
+  }, [close, setPanelY]);
 
-  const handleScroll = () => {
-    if (!isExpanded && contentRef.current && contentRef.current.scrollTop > 10) {
-      setIsExpanded(true);
-    }
-  };
-
-  if (!isOpen || !track) return null;
+  if (!isVisible || !track) return null;
 
   return (
     <>
-      <div className="overlay animate-fade-in" onClick={onClose} />
-      <div 
-        className={`panel ${!hasDragged ? 'animate-slide-up' : ''} ${isExpanded ? 'expanded' : ''}`}
+      <div ref={overlayRef} className="overlay" onClick={close} />
+      <div
+        ref={panelRef}
+        className="panel"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={hasDragged ? { 
-          transform: `translateX(-50%) translateY(${dragY}px)`,
-          transition: isDragging ? 'height 0.4s cubic-bezier(0.32, 0.72, 0, 1)' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), height 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
-        } : undefined}
       >
         <div className="drag-indicator">
           <div className="drag-bar" />
@@ -108,7 +157,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
         <header className="panel-header">
           <div className="header-actions">
             <div className="header-left">
-              <button onClick={onClose} className="icon-btn" aria-label="Close audio panel">
+              <button className="icon-btn" onClick={close} aria-label="Close panel">
                 <X size={20} strokeWidth={1} />
               </button>
             </div>
@@ -158,16 +207,15 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           z-index: 100;
-          touch-action: none;
+          transition: opacity 0.4s ease;
         }
-        
+
         .panel {
           position: fixed;
           bottom: 0;
           left: 50%;
-          transform: translateX(-50%) translateY(100%);
           width: 100%;
-          height: 85dvh;
+          height: 96dvh;
           max-width: 800px;
           border-top-left-radius: 2rem;
           border-top-right-radius: 2rem;
@@ -179,24 +227,10 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           box-shadow: 0 -10px 60px rgba(0, 0, 0, 0.05);
           border: 1px solid var(--border-light);
           border-bottom: none;
-          transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-          touch-action: none;
-          overscroll-behavior: none;
+          will-change: transform;
+          transform: translateX(-50%) translateY(100%);
         }
-        
-        .panel.expanded {
-          height: 96dvh;
-        }
-        
-        .animate-slide-up {
-          animation: slideUp var(--transition-normal) forwards;
-        }
-        
-        @keyframes slideUp {
-          from { transform: translateX(-50%) translateY(100%); opacity: 0; }
-          to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
-        
+
         .panel-header {
           padding: 0.5rem 2.5rem 1rem;
         }
@@ -213,7 +247,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
         .drag-indicator:active {
           cursor: grabbing;
         }
-        
+
         .drag-bar {
           width: 40px;
           height: 4px;
@@ -221,7 +255,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           background-color: var(--border-light);
           opacity: 0.8;
         }
-        
+
         .header-actions {
           display: grid;
           grid-template-columns: 1fr auto 1fr;
@@ -237,25 +271,26 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           justify-self: end;
           width: 40px;
         }
-        
+
         .icon-btn {
           color: var(--text-tertiary);
           transition: all var(--transition-fast);
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px; height: 40px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           background: transparent;
           border: none;
           cursor: pointer;
         }
-        
+
         .icon-btn:hover {
           color: var(--text-primary);
           background: var(--bg-secondary);
         }
-        
+
         .lens-indicator {
           font-weight: 200;
           font-size: 0.75rem;
@@ -272,7 +307,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           display: flex;
           flex-direction: column;
           align-items: center;
-          touch-action: pan-y;
+          -webkit-overflow-scrolling: touch;
           overscroll-behavior-y: none;
         }
 
@@ -282,6 +317,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           display: flex;
           flex-direction: column;
           align-items: center;
+          width: 100%;
         }
 
         .song-image-container {
@@ -323,6 +359,8 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
         .audio-controls-main {
           display: flex;
           align-items: center;
+          justify-content: center;
+          width: 100%;
           gap: 2rem;
           margin-bottom: 5rem;
         }
@@ -364,8 +402,6 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           max-width: 80%;
         }
 
-
-
         .track-description p {
           font-size: 1.15rem;
           line-height: 2;
@@ -381,12 +417,8 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
 
         @media (max-width: 768px) {
           .panel {
-            height: 85dvh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
-          }
-          .panel.expanded {
-            height: 96dvh;
           }
           .audio-content {
             padding: 1.5rem 2rem 4rem;

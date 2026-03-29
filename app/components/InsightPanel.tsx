@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Bookmark, BookmarkCheck } from "lucide-react";
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import { useSearchParams } from "next/navigation";
 
@@ -22,14 +22,32 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [hasDragged, setHasDragged] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [isVisible, setIsVisible] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // All animation state in refs for zero-lag
+  const baseOffsetPx = useRef(0);
+  const isDragging = useRef(false);
+  const dragStartClientY = useRef(0);
+  const dragStartPanelY = useRef(0);
+  const currentPanelY = useRef(0);
+  const isClosingRef = useRef(false);
+
+  const setPanelY = useCallback((y: number, animated: boolean) => {
+    currentPanelY.current = y;
+    if (!panelRef.current) return;
+    panelRef.current.style.transition = animated
+      ? 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+      : 'none';
+    panelRef.current.style.transform = `translateX(-50%) translateY(${y}px)`;
+
+    if (overlayRef.current) {
+      overlayRef.current.style.opacity = String(Math.max(0, 1 - y / 500));
+    }
+  }, []);
 
   useEffect(() => {
     setNusach(localStorage.getItem("legani_nusach") || "General");
@@ -40,9 +58,55 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (isOpen) {
+      isClosingRef.current = false;
+      baseOffsetPx.current = window.innerHeight * 0.11;
+      setIsVisible(true);
+      document.body.style.overflow = 'hidden';
+
+      requestAnimationFrame(() => {
+        setPanelY(window.innerHeight, false);
+        requestAnimationFrame(() => {
+          setPanelY(baseOffsetPx.current, true);
+        });
+      });
+    }
+  }, [isOpen, setPanelY]);
+
+  useEffect(() => {
+    if (!isOpen && isVisible) {
+      setIsVisible(false);
+      setHasStarted(false);
+      setIsBookmarked(false);
+      document.body.style.overflow = '';
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    }
+  }, [isOpen, isVisible]);
+
+  const close = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setPanelY(window.innerHeight, true);
+    if (overlayRef.current) {
+      overlayRef.current.style.transition = 'opacity 0.45s ease';
+      overlayRef.current.style.opacity = '0';
+    }
+    setTimeout(() => {
+      setIsVisible(false);
+      setHasStarted(false);
+      setIsBookmarked(false);
+      isClosingRef.current = false;
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      document.body.style.overflow = '';
+      onClose();
+    }, 480);
+  }, [onClose, setPanelY]);
+
+  // Load insight data
+  useEffect(() => {
     if (isOpen && verseId && !hasStarted) {
       setHasStarted(true);
-      
+
       const loadInsight = async () => {
         setIsLoading(true);
         try {
@@ -71,7 +135,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           setIsLoading(false);
         }
       };
-      
+
       loadInsight();
     }
   }, [isOpen, verseId, verseTextHebrew, verseTextEnglish, hasStarted, nusach, chassidus, language, searchParams]);
@@ -81,11 +145,9 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     setMessages([{ role: 'assistant', content: "" }]);
 
     const generationId = Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
-    
     let isPolling = true;
 
     try {
-      // 1. Kick off generation via POST (non-blocking for UI polling)
       const chatPromise = fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,11 +158,10 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
         })
       });
 
-      // 2. Poll DynamoDB FAST to simulate native streaming speed
       const pollLoop = async () => {
         let currentText = "";
         while (isPolling) {
-          await new Promise(r => setTimeout(r, 250)); // Poll every 250ms
+          await new Promise(r => setTimeout(r, 250));
           try {
             const res = await fetch(`/api/generations?id=${generationId}`);
             if (res.ok) {
@@ -112,7 +173,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
               if (data.status === "completed" || data.status === "error") {
                 isPolling = false;
                 if (data.status === "error" && !currentText) {
-                    setMessages([{ role: 'assistant', content: "An error occurred. Please try again later." }]);
+                  setMessages([{ role: 'assistant', content: "An error occurred. Please try again later." }]);
                 } else if (currentText) {
                   localStorage.setItem(`legani_insight_v4_${verseId}_${chassidus}`, currentText);
                 }
@@ -128,7 +189,6 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
 
       pollLoop();
 
-      // Ensure main request finishes
       const chatRes = await chatPromise;
       if (!chatRes.ok) {
         throw new Error("Chat request failed");
@@ -141,64 +201,53 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     }
   };
 
+  // Scroll-driven expansion
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (isDragging.current || isClosingRef.current) return;
+    const st = e.currentTarget.scrollTop;
+    const y = Math.max(0, baseOffsetPx.current - st);
+    setPanelY(y, false);
+  }, [setPanelY]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setHasStarted(false);
-      setIsBookmarked(false);
-      setDragY(0);
-      setHasDragged(false);
-      setIsDragging(false);
-      setIsExpanded(false);
-    }
-  }, [isOpen]);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Touch drag for dismiss
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
       if (scrollRef.current.scrollTop > 0) return;
     }
-    setTouchStartY(e.touches[0].clientY);
-    setIsDragging(true);
-    setHasDragged(true);
-  };
+    isDragging.current = true;
+    dragStartClientY.current = e.touches[0].clientY;
+    dragStartPanelY.current = currentPanelY.current;
+    if (panelRef.current) panelRef.current.style.transition = 'none';
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY === null || !isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - touchStartY;
-    
-    if (deltaY < -30 && !isExpanded) {
-      setIsExpanded(true);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const delta = e.touches[0].clientY - dragStartClientY.current;
+
+    if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
+      if (delta < 0) { isDragging.current = false; return; }
+      if (scrollRef.current.scrollTop > 0) { isDragging.current = false; return; }
     }
 
-    setDragY(deltaY > 0 ? deltaY : Math.max(deltaY * 0.2, -20));
-  };
+    let newY = dragStartPanelY.current + delta;
+    if (newY < 0) newY = newY * 0.12;
+    setPanelY(newY, false);
+  }, [setPanelY]);
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    setIsDragging(false);
-    if (touchStartY === null) return;
-    
-    if (dragY > 100) {
-      onClose();
-      setTimeout(() => {
-        setDragY(0);
-        setIsExpanded(false);
-      }, 300);
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    if (currentPanelY.current > 150) {
+      close();
     } else {
-      setDragY(0);
-      if (dragY > 40 && isExpanded) {
-        setIsExpanded(false);
-      }
+      const scrollTop = scrollRef.current?.scrollTop || 0;
+      const targetY = Math.max(0, baseOffsetPx.current - scrollTop);
+      setPanelY(targetY, true);
     }
-    setTouchStartY(null);
-  };
+  }, [close, setPanelY]);
 
-  const handleScroll = () => {
-    if (!isExpanded && scrollRef.current && scrollRef.current.scrollTop > 10) {
-      setIsExpanded(true);
-    }
-  };
-
+  // Bookmarks
   useEffect(() => {
     if (isOpen) {
       fetch("/api/bookmarks").then(res => res.json()).then(bms => {
@@ -210,9 +259,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const toggleBookmark = async () => {
     if (isBookmarked) {
       setIsBookmarked(false);
-      try {
-        await fetch(`/api/bookmarks?id=${verseId}`, { method: 'DELETE' });
-      } catch (e) { console.error(e); }
+      try { await fetch(`/api/bookmarks?id=${verseId}`, { method: 'DELETE' }); } catch (e) { console.error(e); }
     } else {
       setIsBookmarked(true);
       try {
@@ -225,21 +272,17 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     }
   };
 
-
-  if (!isOpen) return null;
+  if (!isVisible) return null;
 
   return (
     <>
-      <div className="overlay animate-fade-in" onClick={onClose} />
-      <div 
-        className={`panel ${!hasDragged ? 'animate-slide-up' : ''} ${isExpanded ? 'expanded' : ''}`}
+      <div ref={overlayRef} className="overlay" onClick={close} />
+      <div
+        ref={panelRef}
+        className="panel"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={hasDragged ? { 
-          transform: `translateX(-50%) translateY(${dragY}px)`,
-          transition: isDragging ? 'height 0.4s cubic-bezier(0.32, 0.72, 0, 1)' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), height 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
-        } : undefined}
       >
         <div className="drag-indicator">
           <div className="drag-bar" />
@@ -247,7 +290,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
         <header className="panel-header">
           <div className="header-actions">
             <div className="header-left">
-              <button onClick={onClose} className="icon-btn" aria-label="Close insight panel">
+              <button className="icon-btn" onClick={close} aria-label="Close panel">
                 <X size={20} strokeWidth={1} />
               </button>
             </div>
@@ -255,10 +298,9 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
               {chassidus !== "None" ? chassidus : "Wisdom"}
             </p>
             <div className="right-actions">
-
-              <button 
-                onClick={toggleBookmark} 
-                className="icon-btn" 
+              <button
+                onClick={toggleBookmark}
+                className="icon-btn"
                 aria-label="Bookmark this insight"
               >
                 {isBookmarked ? <BookmarkCheck size={20} strokeWidth={1} color="var(--text-primary)" /> : <Bookmark size={20} strokeWidth={1} />}
@@ -303,16 +345,15 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           z-index: 100;
-          touch-action: none;
+          transition: opacity 0.4s ease;
         }
-        
+
         .panel {
           position: fixed;
           bottom: 0;
           left: 50%;
-          transform: translateX(-50%) translateY(100%);
           width: 100%;
-          height: 85dvh;
+          height: 96dvh;
           max-width: 800px;
           border-top-left-radius: 2rem;
           border-top-right-radius: 2rem;
@@ -324,24 +365,10 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           box-shadow: 0 -10px 60px rgba(0, 0, 0, 0.05);
           border: 1px solid var(--border-light);
           border-bottom: none;
-          transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-          touch-action: none;
-          overscroll-behavior: none;
+          will-change: transform;
+          transform: translateX(-50%) translateY(100%);
         }
-        
-        .panel.expanded {
-          height: 96dvh;
-        }
-        
-        .animate-slide-up {
-          animation: slideUp var(--transition-normal) forwards;
-        }
-        
-        @keyframes slideUp {
-          from { transform: translateX(-50%) translateY(100%); opacity: 0; }
-          to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
-        
+
         .panel-header {
           padding: 0.5rem 2.5rem 1rem;
         }
@@ -358,7 +385,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
         .drag-indicator:active {
           cursor: grabbing;
         }
-        
+
         .drag-bar {
           width: 40px;
           height: 4px;
@@ -366,7 +393,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           background-color: var(--border-light);
           opacity: 0.8;
         }
-        
+
         .header-actions {
           display: grid;
           grid-template-columns: 1fr auto 1fr;
@@ -383,60 +410,26 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           justify-self: end;
           gap: 0.5rem;
         }
-        
+
         .icon-btn {
           color: var(--text-tertiary);
           transition: all var(--transition-fast);
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px; height: 40px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
+          background: transparent;
+          border: none;
+          cursor: pointer;
         }
-        
+
         .icon-btn:hover {
           color: var(--text-primary);
           background: var(--bg-secondary);
         }
-        
-        .dropdown-menu {
-          position: absolute;
-          top: 100%;
-          right: 0;
-          margin-top: 0.5rem;
-          background: var(--bg-primary);
-          border: 1px solid var(--border-light);
-          border-radius: 12px;
-          padding: 0.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          min-width: 180px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-          z-index: 10;
-        }
 
-        .dropdown-item {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          width: 100%;
-          padding: 0.75rem 1rem;
-          background: transparent;
-          border: none;
-          font-family: inherit;
-          font-size: 0.85rem;
-          color: var(--text-primary);
-          text-align: left;
-          cursor: pointer;
-          border-radius: 8px;
-          transition: background-color var(--transition-fast);
-        }
-
-        .dropdown-item:hover {
-          background-color: var(--bg-secondary);
-        }
-        
         .lens-indicator {
           font-weight: 200;
           font-size: 0.75rem;
@@ -445,21 +438,20 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           letter-spacing: 0.2em;
           text-align: center;
         }
-        
+
         .chat-content {
           padding: 2rem 4rem 6rem;
           overflow-y: auto;
           flex: 1;
-          touch-action: pan-y;
+          -webkit-overflow-scrolling: touch;
           overscroll-behavior-y: none;
         }
-        
+
         .verse-context {
           margin-bottom: 3.5rem;
           text-align: center;
           position: relative;
         }
-        
 
         .insight-image-divider {
           display: flex;
@@ -478,7 +470,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           object-fit: cover;
           object-position: center;
         }
-        
+
         .hebrew-text {
           color: var(--text-primary);
           font-family: var(--font-hebrew);
@@ -486,7 +478,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           margin-bottom: 1.5rem;
           line-height: 1.6;
         }
-        
+
         .english-text {
           font-size: 1.15rem;
           color: var(--text-secondary);
@@ -496,13 +488,13 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           max-width: 80%;
           margin: 0 auto;
         }
-        
+
         .messages {
           display: flex;
           flex-direction: column;
           gap: 2rem;
         }
-        
+
         .insight-message {
           font-size: 1.15rem;
           line-height: 2;
@@ -510,25 +502,25 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           font-weight: 300;
           letter-spacing: 0.01em;
         }
-        
+
         .insight-message :global(p) {
           margin-bottom: 1.5rem;
         }
-        
+
         .insight-message :global(p:last-child) {
           margin-bottom: 0;
         }
-        
+
         .insight-message :global(strong) {
           font-weight: 500;
           color: var(--text-primary);
         }
-        
+
         .insight-message :global(em) {
           font-style: italic;
           color: var(--text-secondary);
         }
-        
+
         .skeleton-wrapper {
           display: flex;
           flex-direction: column;
@@ -536,7 +528,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           margin-top: 1rem;
           width: 100%;
         }
-        
+
         .skeleton-line {
           height: 1.15rem;
           background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.06) 75%);
@@ -546,12 +538,12 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           opacity: 0.9;
           box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
         }
-        
+
         @keyframes skeleton-pulse {
           0% { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
-        
+
         .w-full { width: 100%; }
         .w-11-12 { width: 92%; }
         .w-4-5 { width: 80%; }
@@ -560,12 +552,8 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
 
         @media (max-width: 768px) {
           .panel {
-            height: 85dvh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
-          }
-          .panel.expanded {
-            height: 96dvh;
           }
           .chat-content {
             padding: 1.5rem 2rem 4rem;
@@ -582,7 +570,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
 export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseTextEnglish, dividerImageUrl }: InsightPanelProps) {
   return (
     <Suspense fallback={null}>
-      <InsightPanelContent 
+      <InsightPanelContent
         isOpen={isOpen}
         onClose={onClose}
         verseId={verseId}
