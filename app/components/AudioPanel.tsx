@@ -158,6 +158,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           z-index: 100;
+          touch-action: none;
         }
         
         .panel {
@@ -179,6 +180,8 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           border: 1px solid var(--border-light);
           border-bottom: none;
           transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+          touch-action: none;
+          overscroll-behavior: none;
         }
         
         .panel.expanded {
@@ -269,6 +272,8 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           display: flex;
           flex-direction: column;
           align-items: center;
+          touch-action: pan-y;
+          overscroll-behavior-y: none;
         }
 
         .track-hero {

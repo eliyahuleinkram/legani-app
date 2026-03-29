@@ -303,6 +303,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           z-index: 100;
+          touch-action: none;
         }
         
         .panel {
@@ -324,6 +325,8 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           border: 1px solid var(--border-light);
           border-bottom: none;
           transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+          touch-action: none;
+          overscroll-behavior: none;
         }
         
         .panel.expanded {
@@ -447,6 +450,8 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           padding: 2rem 4rem 6rem;
           overflow-y: auto;
           flex: 1;
+          touch-action: pan-y;
+          overscroll-behavior-y: none;
         }
         
         .verse-context {
