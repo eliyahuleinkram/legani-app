@@ -27,6 +27,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -148,6 +149,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
       setDragY(0);
       setHasDragged(false);
       setIsDragging(false);
+      setIsExpanded(false);
     }
   }, [isOpen]);
 
@@ -164,6 +166,11 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     if (touchStartY === null || !isDragging) return;
     const currentY = e.touches[0].clientY;
     const deltaY = currentY - touchStartY;
+    
+    if (deltaY < -30 && !isExpanded) {
+      setIsExpanded(true);
+    }
+
     setDragY(deltaY > 0 ? deltaY : Math.max(deltaY * 0.2, -20));
   };
 
@@ -173,11 +180,23 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     
     if (dragY > 100) {
       onClose();
-      setTimeout(() => setDragY(0), 300);
+      setTimeout(() => {
+        setDragY(0);
+        setIsExpanded(false);
+      }, 300);
     } else {
       setDragY(0);
+      if (dragY > 40 && isExpanded) {
+        setIsExpanded(false);
+      }
     }
     setTouchStartY(null);
+  };
+
+  const handleScroll = () => {
+    if (!isExpanded && scrollRef.current && scrollRef.current.scrollTop > 10) {
+      setIsExpanded(true);
+    }
   };
 
   useEffect(() => {
@@ -213,13 +232,13 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
     <>
       <div className="overlay animate-fade-in" onClick={onClose} />
       <div 
-        className={`panel ${!hasDragged ? 'animate-slide-up' : ''}`}
+        className={`panel ${!hasDragged ? 'animate-slide-up' : ''} ${isExpanded ? 'expanded' : ''}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={hasDragged ? { 
           transform: `translateX(-50%) translateY(${dragY}px)`,
-          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
+          transition: isDragging ? 'height 0.4s cubic-bezier(0.32, 0.72, 0, 1)' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), height 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
         } : undefined}
       >
         <div className="drag-indicator">
@@ -248,7 +267,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           </div>
         </header>
 
-        <div className="chat-content" ref={scrollRef}>
+        <div className="chat-content" ref={scrollRef} onScroll={handleScroll}>
           <div className="verse-context">
             <p className="hebrew-text">{verseTextHebrew}</p>
             <p className="english-text">"{verseTextEnglish}"</p>
@@ -292,7 +311,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           left: 50%;
           transform: translateX(-50%) translateY(100%);
           width: 100%;
-          height: 85vh;
+          height: 85dvh;
           max-width: 800px;
           border-top-left-radius: 2rem;
           border-top-right-radius: 2rem;
@@ -304,6 +323,11 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           box-shadow: 0 -10px 60px rgba(0, 0, 0, 0.05);
           border: 1px solid var(--border-light);
           border-bottom: none;
+          transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+        
+        .panel.expanded {
+          height: 96dvh;
         }
         
         .animate-slide-up {
@@ -531,9 +555,12 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
 
         @media (max-width: 768px) {
           .panel {
-            height: 85vh;
+            height: 85dvh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
+          }
+          .panel.expanded {
+            height: 96dvh;
           }
           .chat-content {
             padding: 1.5rem 2rem 4rem;

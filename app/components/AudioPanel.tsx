@@ -26,6 +26,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -34,6 +35,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
       setDragY(0);
       setHasDragged(false);
       setIsDragging(false);
+      setIsExpanded(false);
     }
   }, [isOpen]);
 
@@ -51,6 +53,10 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
     const currentY = e.touches[0].clientY;
     const deltaY = currentY - touchStartY;
     
+    if (deltaY < -30 && !isExpanded) {
+      setIsExpanded(true);
+    }
+    
     // Smooth drag down, slight resistance drag up
     setDragY(deltaY > 0 ? deltaY : Math.max(deltaY * 0.2, -20));
   };
@@ -62,11 +68,23 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
     // Threshold to close
     if (dragY > 100) {
       onClose();
-      setTimeout(() => setDragY(0), 300);
+      setTimeout(() => {
+        setDragY(0);
+        setIsExpanded(false);
+      }, 300);
     } else {
       setDragY(0);
+      if (dragY > 40 && isExpanded) {
+        setIsExpanded(false);
+      }
     }
     setTouchStartY(null);
+  };
+
+  const handleScroll = () => {
+    if (!isExpanded && contentRef.current && contentRef.current.scrollTop > 10) {
+      setIsExpanded(true);
+    }
   };
 
   if (!isOpen || !track) return null;
@@ -75,13 +93,13 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
     <>
       <div className="overlay animate-fade-in" onClick={onClose} />
       <div 
-        className={`panel ${!hasDragged ? 'animate-slide-up' : ''}`}
+        className={`panel ${!hasDragged ? 'animate-slide-up' : ''} ${isExpanded ? 'expanded' : ''}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={hasDragged ? { 
           transform: `translateX(-50%) translateY(${dragY}px)`,
-          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
+          transition: isDragging ? 'height 0.4s cubic-bezier(0.32, 0.72, 0, 1)' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), height 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
         } : undefined}
       >
         <div className="drag-indicator">
@@ -101,7 +119,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           </div>
         </header>
 
-        <div className="audio-content" ref={contentRef}>
+        <div className="audio-content" ref={contentRef} onScroll={handleScroll}>
           <div className="track-hero">
             {track.image && (
               <div className="song-image-container">
@@ -148,7 +166,7 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           left: 50%;
           transform: translateX(-50%) translateY(100%);
           width: 100%;
-          height: 85vh;
+          height: 85dvh;
           max-width: 800px;
           border-top-left-radius: 2rem;
           border-top-right-radius: 2rem;
@@ -160,6 +178,11 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
           box-shadow: 0 -10px 60px rgba(0, 0, 0, 0.05);
           border: 1px solid var(--border-light);
           border-bottom: none;
+          transition: height 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+        
+        .panel.expanded {
+          height: 96dvh;
         }
         
         .animate-slide-up {
@@ -353,9 +376,12 @@ export function AudioPanel({ isOpen, onClose, track, isPlaying, onTogglePlay, on
 
         @media (max-width: 768px) {
           .panel {
-            height: 85vh;
+            height: 85dvh;
             border-top-left-radius: 1.5rem;
             border-top-right-radius: 1.5rem;
+          }
+          .panel.expanded {
+            height: 96dvh;
           }
           .audio-content {
             padding: 1.5rem 2rem 4rem;
