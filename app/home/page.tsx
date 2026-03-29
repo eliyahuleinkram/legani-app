@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { InsightPanel } from "../components/InsightPanel";
+import { GlobalAudioButton } from "../components/AudioContext";
 
 import { HDate, Location, Zmanim, getHolidaysOnDate } from "@hebcal/core";
 
@@ -12,6 +15,7 @@ export default function HomeDashboard() {
   const [nusach, setNusach] = useState("");
   const [chassidus, setChassidus] = useState("");
   const [bookmarks, setBookmarks] = useState<{id: string, hebrew: string, english: string}[]>([]);
+  const [activeBookmark, setActiveBookmark] = useState<{id: string, hebrew: string, english: string} | null>(null);
   const [greeting, setGreeting] = useState("Awaken Your Day");
   const [dateString, setDateString] = useState("");
 
@@ -52,33 +56,10 @@ export default function HomeDashboard() {
     };
 
     setTimeBasedGreeting();
-    updateDateDisplay(new Date());
-
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateDateDisplay(new Date(), pos.coords.latitude, pos.coords.longitude);
-        },
-        (err) => {
-          fetchIpFallback();
-        }
-      );
-    } else {
-      fetchIpFallback();
-    }
+    
+    // Default to Jerusalem (Latitude 31.7683, Longitude 35.2137)
+    updateDateDisplay(new Date(), 31.7683, 35.2137);
   }, [router]);
-
-  const fetchIpFallback = async () => {
-    try {
-      const res = await fetch("https://ipapi.co/json/");
-      const data = await res.json();
-      if (data.latitude && data.longitude) {
-        updateDateDisplay(new Date(), data.latitude, data.longitude);
-      }
-    } catch {
-      // Background location failed, default date calculation remains active
-    }
-  };
 
   const updateDateDisplay = (date: Date, lat?: number, lon?: number) => {
     let hd = new HDate(date);
@@ -114,14 +95,17 @@ export default function HomeDashboard() {
     <main className="zen-dashboard">
       <nav className="zen-nav animate-fade-in">
         <span className="zen-logo">Legani</span>
-        <div className="zen-prefs">
-          <span>{nusach}</span>
-          {chassidus !== "None" && (
-            <>
-              <span className="zen-separator">/</span>
-              <span>{chassidus}</span>
-            </>
-          )}
+        <div className="nav-right">
+          <div className="zen-prefs">
+            <span>{nusach}</span>
+            {chassidus !== "None" && (
+              <>
+                <span className="zen-separator">/</span>
+                <span>{chassidus}</span>
+              </>
+            )}
+          </div>
+          <GlobalAudioButton />
         </div>
       </nav>
 
@@ -133,7 +117,7 @@ export default function HomeDashboard() {
 
         <section className="zen-prayers animate-fade-in" style={{ animationDelay: '0.4s' }}>
           <div className="zen-prayer-list">
-            <Link href="/feed/shacharit" className="zen-prayer-item group">
+            <Link href="/morning" className="zen-prayer-item group">
               <div className="prayer-info">
                 <img src="/images/icon_morning.png" alt="Morning Icon" className="prayer-icon-drawing" />
                 <h2 className="prayer-title">Morning</h2>
@@ -141,7 +125,7 @@ export default function HomeDashboard() {
               <div className="zen-arrow-ghost" style={{ width: 28, height: 28, flexShrink: 0 }} aria-hidden="true" />
             </Link>
 
-            <Link href="/feed/mincha" className="zen-prayer-item group">
+            <Link href="/afternoon" className="zen-prayer-item group">
               <div className="prayer-info">
                 <img src="/images/icon_afternoon.png" alt="Afternoon Icon" className="prayer-icon-drawing" />
                 <h2 className="prayer-title">Afternoon</h2>
@@ -149,7 +133,7 @@ export default function HomeDashboard() {
               <div className="zen-arrow-ghost" style={{ width: 28, height: 28, flexShrink: 0 }} aria-hidden="true" />
             </Link>
 
-            <Link href="/feed/maariv" className="zen-prayer-item group">
+            <Link href="/evening" className="zen-prayer-item group">
               <div className="prayer-info">
                 <img src="/images/icon_evening.png" alt="Evening Icon" className="prayer-icon-drawing" />
                 <h2 className="prayer-title">Evening</h2>
@@ -163,10 +147,23 @@ export default function HomeDashboard() {
           <section className="zen-bookmarks animate-fade-in" style={{ animationDelay: '0.6s' }}>
             <div className="section-label">Collected Insights</div>
             <div className="bookmarks-list">
-              {bookmarks.map((bm) => (
-                <div key={bm.id} className="zen-bookmark">
-                  <p className="bm-hebrew">{bm.hebrew}</p>
-                  <p className="bm-english">{bm.english}</p>
+              {bookmarks.map((bm, index) => (
+                <div key={bm.id} className="zen-verse-wrapper">
+                  <div 
+                    className="zen-verse-block group"
+                    onClick={() => setActiveBookmark(bm)}
+                  >
+                    <div className="zen-verse-inner">
+                      <p className="zen-hebrew">{bm.hebrew}</p>
+                      <p className="zen-english">{bm.english}</p>
+                    </div>
+                  </div>
+                  
+                  {index < bookmarks.length - 1 && (
+                    <div className="verse-separator">
+                      <img src={`/images/verse_divider_${['wave', 'stream', 'horizon', 'mountain'][index % 4]}.png?v=fixed`} alt="divider" className="verse-divider-image" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -175,6 +172,19 @@ export default function HomeDashboard() {
 
 
       </div>
+
+      <InsightPanel 
+        isOpen={!!activeBookmark}
+        onClose={() => {
+          setActiveBookmark(null);
+          // Wait briefly before fetching to let DELETE requests settle if unbookmarked
+          setTimeout(fetchBookmarks, 500);
+        }}
+        verseId={activeBookmark?.id || ""}
+        verseTextHebrew={activeBookmark?.hebrew || ""}
+        verseTextEnglish={activeBookmark?.english || ""}
+        dividerImageUrl={activeBookmark ? `/images/verse_divider_${['wave', 'stream', 'horizon', 'mountain'][Math.max(0, bookmarks.findIndex(b => b.id === activeBookmark.id)) % 4]}.png?v=fixed` : undefined}
+      />
 
       <style jsx>{`
         .zen-dashboard {
@@ -201,6 +211,12 @@ export default function HomeDashboard() {
           text-transform: uppercase;
           font-size: 1rem;
           color: var(--text-primary);
+        }
+
+        .nav-right {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
         }
 
         .zen-prefs {
@@ -325,30 +341,78 @@ export default function HomeDashboard() {
         .bookmarks-list {
           display: flex;
           flex-direction: column;
-          gap: 4rem;
+          width: 100%;
         }
 
-        .zen-bookmark {
+        .zen-verse-wrapper {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          border-left: 1px solid var(--border-light);
-          padding-left: 2rem;
+          align-items: center;
+          width: 100%;
         }
 
-        .bm-hebrew {
+        .zen-verse-block {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          cursor: pointer;
+          position: relative;
+          padding: 1.5rem 0;
+          transition: opacity var(--transition-normal);
+        }
+
+        .zen-verse-wrapper:first-child .zen-verse-block {
+          padding-top: 0;
+        }
+
+        .zen-verse-wrapper:last-child .zen-verse-block {
+          padding-bottom: 0;
+        }
+
+        .zen-verse-block:hover {
+          opacity: 0.6;
+        }
+
+        .zen-verse-inner {
+          text-align: center;
+          transition: opacity var(--transition-normal);
+        }
+
+        .zen-hebrew {
           font-family: var(--font-hebrew);
           font-size: var(--text-hebrew-lg);
+          margin-bottom: 2rem;
           color: var(--text-primary);
+          line-height: 1.6;
           direction: rtl;
         }
 
-        .bm-english {
+        .zen-english {
           font-size: var(--text-lg);
-          font-weight: 300;
-          color: var(--text-secondary);
+          color: var(--text-primary);
           line-height: 1.8;
-          max-width: 600px;
+          font-weight: 300;
+          max-width: 85%;
+          margin: 0 auto;
+        }
+
+        .verse-separator {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
+          padding: 2.5rem 0;
+          opacity: 0.4;
+        }
+
+        .verse-divider-image {
+          width: 90%;
+          max-width: 500px;
+          height: auto;
+          aspect-ratio: 4.5 / 1;
+          object-fit: cover;
+          object-position: center;
+          opacity: 0.85;
         }
 
         .zen-inspiration {
@@ -377,10 +441,11 @@ export default function HomeDashboard() {
 
         @media (max-width: 768px) {
           .zen-nav {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
             padding: 1.5rem 0;
+            align-items: center;
+          }
+          .nav-right {
+            gap: 1rem;
           }
           .zen-dashboard {
             padding: 1rem 1.5rem 6rem;
@@ -406,8 +471,8 @@ export default function HomeDashboard() {
           .section-label {
             margin-bottom: 2rem;
           }
-          .zen-bookmark {
-            padding-left: 1.25rem;
+          .zen-english {
+            max-width: 100%;
           }
           .bookmarks-list {
             gap: 2.5rem;

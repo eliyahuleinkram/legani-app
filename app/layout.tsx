@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Frank_Ruhl_Libre } from "next/font/google";
 import "./globals.css";
+import { AudioProvider } from "./components/AudioContext";
+import StyledJsxRegistry from "./registry";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,7 +39,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${hebrew.variable}`}>
       <body>
-        {children}
+        <StyledJsxRegistry>
+          <AudioProvider>
+            {children}
+          </AudioProvider>
+        </StyledJsxRegistry>
       </body>
     </html>
   );

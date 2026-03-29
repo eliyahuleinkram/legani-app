@@ -53,12 +53,20 @@ export default $config({
       primaryIndex: { hashKey: "id" },
     });
 
+    const generationsTable = new sst.aws.Dynamo("Generations", {
+      fields: {
+        id: "string",
+      },
+      primaryIndex: { hashKey: "id" },
+      ttl: "ttl",
+    });
+
     new sst.aws.Nextjs("MyWeb", {
       domain: {
         name: "legani.co",
         dns: sst.cloudflare.dns(),
       },
-      link: [googleApiKey, apartmentsTable, promptCacheTable, insightSnapshotsTable, sharedBookmarksTable, evoApiUrl, evoApiKey, evoInstanceName],
+      link: [googleApiKey, apartmentsTable, promptCacheTable, insightSnapshotsTable, sharedBookmarksTable, generationsTable, evoApiUrl, evoApiKey, evoInstanceName],
       environment: {
         GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
       },

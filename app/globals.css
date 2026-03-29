@@ -14,10 +14,7 @@
   --border-light: rgba(0, 0, 0, 0.04);
   --border-glass: rgba(255, 255, 255, 0.6);
   
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, serif;
-  --font-hebrew: 'Frank Ruhl Libre', 'Times New Roman', serif;
+  /* Typography - Managed by Next.js in layout.tsx via CSS variables */
   
   /* Layout Spacing */
   --transition-fast: 0.4s cubic-bezier(0.16, 1, 0.3, 1);

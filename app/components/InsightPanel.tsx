@@ -1,7 +1,7 @@
 "use client";
 
-import { X, Bookmark, BookmarkCheck, Share, MoreVertical } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { X, Bookmark, BookmarkCheck } from "lucide-react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import { useSearchParams } from "next/navigation";
 
@@ -14,7 +14,7 @@ interface InsightPanelProps {
   dividerImageUrl?: string;
 }
 
-export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseTextEnglish, dividerImageUrl }: InsightPanelProps) {
+function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseTextEnglish, dividerImageUrl }: InsightPanelProps) {
   const [nusach, setNusach] = useState("");
   const [chassidus, setChassidus] = useState("");
   const [language, setLanguage] = useState("");
@@ -22,7 +22,12 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasDragged, setHasDragged] = useState(false);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
             }
           }
 
-          const cacheKey = `legani_insight_${verseId}_${chassidus}`;
+          const cacheKey = `legani_insight_v4_${verseId}_${chassidus}`;
           const cached = localStorage.getItem(cacheKey);
           if (cached) {
             setMessages([{ role: 'assistant', content: cached }]);
@@ -72,40 +77,65 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
 
   const generateFreshInsight = async () => {
     setIsLoading(true);
-    setMessages([]);
+    setMessages([{ role: 'assistant', content: "" }]);
+
+    const generationId = Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
+    
+    let isPolling = true;
+
     try {
-      const res = await fetch("/api/chat", {
+      // 1. Kick off generation via POST (non-blocking for UI polling)
+      const chatPromise = fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          generationId,
           data: { nusach, chassidus, language, verse: verseTextEnglish },
           messages: [{ role: 'user', content: `I am meditating on this verse: "${verseTextHebrew}" - "${verseTextEnglish}". Teach me its deeper meaning according to my lens.` }]
         })
       });
-      
-      if (!res.body) throw new Error("No response body");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let text = "";
-      
-      setMessages([{ role: 'assistant', content: "" }]);
 
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          text += chunk;
-          setMessages([{ role: 'assistant', content: text }]);
+      // 2. Poll DynamoDB FAST to simulate native streaming speed
+      const pollLoop = async () => {
+        let currentText = "";
+        while (isPolling) {
+          await new Promise(r => setTimeout(r, 250)); // Poll every 250ms
+          try {
+            const res = await fetch(`/api/generations?id=${generationId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.content && data.content.length > currentText.length) {
+                currentText = data.content;
+                setMessages([{ role: 'assistant', content: currentText }]);
+              }
+              if (data.status === "completed" || data.status === "error") {
+                isPolling = false;
+                if (data.status === "error" && !currentText) {
+                    setMessages([{ role: 'assistant', content: "An error occurred. Please try again later." }]);
+                } else if (currentText) {
+                  localStorage.setItem(`legani_insight_v4_${verseId}_${chassidus}`, currentText);
+                }
+                setIsLoading(false);
+                break;
+              }
+            }
+          } catch (e) {
+            console.error("Polling error:", e);
+          }
         }
+      };
+
+      pollLoop();
+
+      // Ensure main request finishes
+      const chatRes = await chatPromise;
+      if (!chatRes.ok) {
+        throw new Error("Chat request failed");
       }
-      
-      // Cache completed stream
-      localStorage.setItem(`legani_insight_${verseId}_${chassidus}`, text);
     } catch (e) {
-      console.error(e);
-    } finally {
+      console.error("Chat initiation error:", e);
+      isPolling = false;
+      setMessages([{ role: 'assistant', content: "An error occurred fetching the insight." }]);
       setIsLoading(false);
     }
   };
@@ -115,8 +145,40 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
     if (!isOpen) {
       setHasStarted(false);
       setIsBookmarked(false);
+      setDragY(0);
+      setHasDragged(false);
+      setIsDragging(false);
     }
   }, [isOpen]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
+      if (scrollRef.current.scrollTop > 0) return;
+    }
+    setTouchStartY(e.touches[0].clientY);
+    setIsDragging(true);
+    setHasDragged(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY === null || !isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartY;
+    setDragY(deltaY > 0 ? deltaY : Math.max(deltaY * 0.2, -20));
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    setIsDragging(false);
+    if (touchStartY === null) return;
+    
+    if (dragY > 100) {
+      onClose();
+      setTimeout(() => setDragY(0), 300);
+    } else {
+      setDragY(0);
+    }
+    setTouchStartY(null);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -144,42 +206,25 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
     }
   };
 
-  const handleMenuClick = () => {
-    setShowMenu(!showMenu);
-  };
-
-  const handleShare = async () => {
-    try {
-      const content = messages.find((m: any) => m.role === 'assistant')?.content;
-      if (!content) return;
-      
-      const res = await fetch("/api/snapshots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, verseId })
-      });
-      const data = await res.json();
-      
-      const url = `${window.location.origin}${window.location.pathname}?v=${verseId}&snapshot=${data.id}`;
-      const text = `"${verseTextEnglish}"\n\nExperience this meditation in Legani:`;
-      
-      if (navigator.share) {
-        await navigator.share({ title: "Legani | Pen of the Heart", text, url });
-      } else {
-        navigator.clipboard.writeText(`${text} ${url}`);
-        alert("Link copied to clipboard");
-      }
-    } catch (err) {
-      console.log("Share skipped", err);
-    }
-  };
 
   if (!isOpen) return null;
 
   return (
     <>
       <div className="overlay animate-fade-in" onClick={onClose} />
-      <div className="panel animate-slide-up">
+      <div 
+        className={`panel ${!hasDragged ? 'animate-slide-up' : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={hasDragged ? { 
+          transform: `translateX(-50%) translateY(${dragY}px)`,
+          transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)'
+        } : undefined}
+      >
+        <div className="drag-indicator">
+          <div className="drag-bar" />
+        </div>
         <header className="panel-header">
           <div className="header-actions">
             <div className="header-left">
@@ -190,7 +235,8 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
             <p className="lens-indicator">
               {chassidus !== "None" ? chassidus : "Wisdom"}
             </p>
-            <div className="right-actions" style={{ position: 'relative' }}>
+            <div className="right-actions">
+
               <button 
                 onClick={toggleBookmark} 
                 className="icon-btn" 
@@ -198,22 +244,6 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
               >
                 {isBookmarked ? <BookmarkCheck size={20} strokeWidth={1} color="var(--text-primary)" /> : <Bookmark size={20} strokeWidth={1} />}
               </button>
-              <button 
-                onClick={handleMenuClick} 
-                className="icon-btn" 
-                aria-label="More options"
-              >
-                <MoreVertical size={20} strokeWidth={1} />
-              </button>
-
-              {showMenu && (
-                <div className="dropdown-menu animate-fade-in">
-                  <button onClick={() => { handleShare(); setShowMenu(false); }} className="dropdown-item">
-                    <Share size={16} strokeWidth={1.5} />
-                    <span>Share Snapshot</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </header>
@@ -222,15 +252,9 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
           <div className="verse-context">
             <p className="hebrew-text">{verseTextHebrew}</p>
             <p className="english-text">"{verseTextEnglish}"</p>
-            {dividerImageUrl ? (
-              <div className="insight-image-divider">
-                <img src={dividerImageUrl} alt="divider" />
-              </div>
-            ) : (
-              <div className="insight-divider">
-                <span>✧</span>
-              </div>
-            )}
+            <div className="insight-image-divider">
+              <img src={dividerImageUrl || "/images/verse_divider_wave.png?v=fixed"} alt="divider" />
+            </div>
           </div>
 
           <div className="messages">
@@ -292,7 +316,28 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
         }
         
         .panel-header {
-          padding: 2rem 2.5rem 1rem;
+          padding: 0.5rem 2.5rem 1rem;
+        }
+
+        .drag-indicator {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          padding-top: 1rem;
+          padding-bottom: 0.5rem;
+          cursor: grab;
+        }
+
+        .drag-indicator:active {
+          cursor: grabbing;
+        }
+        
+        .drag-bar {
+          width: 40px;
+          height: 4px;
+          border-radius: 2px;
+          background-color: var(--border-light);
+          opacity: 0.8;
         }
         
         .header-actions {
@@ -386,33 +431,7 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
           position: relative;
         }
         
-        .insight-divider {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 85%;
-          margin: 3rem auto 0;
-          opacity: 0.5;
-        }
 
-        .insight-divider::before,
-        .insight-divider::after {
-          content: "";
-          flex: 1;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, var(--text-tertiary) 80%);
-        }
-
-        .insight-divider::after {
-          background: linear-gradient(270deg, transparent, var(--text-tertiary) 80%);
-        }
-
-        .insight-divider span {
-          margin: 0 1.5rem;
-          color: var(--text-tertiary);
-          font-size: 0.85rem;
-        }
-        
         .insight-image-divider {
           display: flex;
           justify-content: center;
@@ -525,5 +544,20 @@ export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseT
         }
       `}</style>
     </>
+  );
+}
+
+export function InsightPanel({ isOpen, onClose, verseId, verseTextHebrew, verseTextEnglish, dividerImageUrl }: InsightPanelProps) {
+  return (
+    <Suspense fallback={null}>
+      <InsightPanelContent 
+        isOpen={isOpen}
+        onClose={onClose}
+        verseId={verseId}
+        verseTextHebrew={verseTextHebrew}
+        verseTextEnglish={verseTextEnglish}
+        dividerImageUrl={dividerImageUrl}
+      />
+    </Suspense>
   );
 }
