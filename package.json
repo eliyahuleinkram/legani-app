@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "vinext build",
+    "dev": "vinext dev",
+    "deploy:prod": "npm run build && sst deploy --stage production",
     "lint": "eslint",
-    "start": "next start"
+    "start": "vinext start"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1017.0",
@@ -17,11 +18,11 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
     "sst": "4.0.7",
+    "styled-jsx": "^5.1.7",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
@@ -29,9 +30,17 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-rsc": "^0.5.24",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.2.3",
+    "next": "^16.2.3",
+    "nitro": "^3.0.260311-beta",
+    "react-server-dom-webpack": "^19.2.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+    "typescript": "^5",
+    "vinext": "^0.0.41",
+    "vite": "^8.0.8"
+  },
+  "type": "module"
 }

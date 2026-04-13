@@ -12,32 +12,7 @@ export default $config({
   },
   async run() {
     const googleApiKey = new sst.Secret("GoogleApiKey");
-    const evoApiUrl = new sst.Secret("EvoApiUrl");
-    const evoApiKey = new sst.Secret("EvoApiKey");
-    const evoInstanceName = new sst.Secret("EvoInstanceName");
 
-    // Auth Secrets (Requires real developer tokens to provision via AWS API)
-    // const googleClientId = new sst.Secret("GoogleClientId");
-    // const googleClientSecret = new sst.Secret("GoogleClientSecret");
-    // const appleClientId = new sst.Secret("AppleClientId");
-    // const appleTeamId = new sst.Secret("AppleTeamId");
-    // const appleKeyId = new sst.Secret("AppleKeyId");
-    // const applePrivateKey = new sst.Secret("ApplePrivateKey");
-
-    const apartmentsTable = new sst.aws.Dynamo("Apartments", {
-      fields: {
-        id: "string",
-      },
-      primaryIndex: { hashKey: "id" },
-    });
-
-    const promptCacheTable = new sst.aws.Dynamo("PromptCache", {
-      fields: {
-        cacheKey: "string",
-      },
-      primaryIndex: { hashKey: "cacheKey" },
-      ttl: "ttl", // Add a TTL field so cache isn't permanent forever
-    });
 
     const insightSnapshotsTable = new sst.aws.Dynamo("InsightSnapshots", {
       fields: {
@@ -61,14 +36,30 @@ export default $config({
       ttl: "ttl",
     });
 
-    new sst.aws.Nextjs("MyWeb", {
+    // 1. Storage for Static Assets (Images, CSS, Client-side JS)
+    const assets = new sst.aws.Bucket("MyWebAssets", {
+      access: "cloudfront",
+    });
+
+    // 2. The Vinext Server (Nitro's AWS Lambda Output)
+    const server = new sst.aws.Function("MyWebServer", {
+      handler: ".output/server/index.handler",
+      url: true, // Enable a direct Function URL
+      link: [googleApiKey, insightSnapshotsTable, sharedBookmarksTable, generationsTable],
+      environment: {
+        GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
+      },
+    });
+
+    // 3. The CloudFront Router
+    new sst.aws.Router("MyWeb", {
       domain: {
         name: "legani.co",
         dns: sst.cloudflare.dns(),
       },
-      link: [googleApiKey, apartmentsTable, promptCacheTable, insightSnapshotsTable, sharedBookmarksTable, generationsTable, evoApiUrl, evoApiKey, evoInstanceName],
-      environment: {
-        GOOGLE_GENERATIVE_AI_API_KEY: googleApiKey.value,
+      routes: {
+        "/_next/*": assets.domain, // Standard next asset path mapped to S3 bucket
+        "/*": server.url, 
       },
     });
   },

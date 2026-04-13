@@ -45,3 +45,8 @@ next-env.d.ts
 
 # open-next
 .open-next
+
+# vinext outputs
+.output/
+.vinext/
+dist/
