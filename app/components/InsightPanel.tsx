@@ -23,6 +23,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -62,6 +63,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
       isClosingRef.current = false;
       baseOffsetPx.current = window.innerHeight * 0.11;
       setIsVisible(true);
+      setIsExpanded(false);
       document.body.style.overflow = 'hidden';
 
       requestAnimationFrame(() => {
@@ -78,6 +80,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
       setIsVisible(false);
       setHasStarted(false);
       setIsBookmarked(false);
+      setIsExpanded(false);
       document.body.style.overflow = '';
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
@@ -95,6 +98,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
       setIsVisible(false);
       setHasStarted(false);
       setIsBookmarked(false);
+      setIsExpanded(false);
       isClosingRef.current = false;
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
       document.body.style.overflow = '';
@@ -319,11 +323,29 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           </div>
 
           <div className="messages">
-            {messages.filter((m: any) => m.role === 'assistant').map((m: any, idx: number) => (
-              <div key={idx} className="insight-message">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
-            ))}
+            {messages.filter((m: any) => m.role === 'assistant').map((m: any, idx: number) => {
+              // Split on double-newlines to get real paragraphs (not single line breaks)
+              const paragraphs = m.content.trim().split(/\n\s*\n/);
+              const firstParagraph = paragraphs[0] || '';
+              const hasMore = paragraphs.length > 1;
+              const displayText = isExpanded ? paragraphs.join('\n\n') : firstParagraph;
+
+              return (
+                <div key={idx} className="insight-message markdown-body">
+                  <ReactMarkdown>{displayText}</ReactMarkdown>
+                  {hasMore && (
+                    <div className="expand-action">
+                      <button 
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="expand-btn"
+                      >
+                        {isExpanded ? "Read Less" : "Read More"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {isLoading && (!messages.length || messages[0].content === "") && (
               <div className="skeleton-wrapper animate-fade-in">
                 <div className="skeleton-line w-full" style={{ animationDelay: '0ms' }}></div>
@@ -337,7 +359,7 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .overlay {
           position: fixed;
           inset: 0;
@@ -503,22 +525,45 @@ function InsightPanelContent({ isOpen, onClose, verseId, verseTextHebrew, verseT
           letter-spacing: 0.01em;
         }
 
-        .insight-message :global(p) {
+        .markdown-body p {
           margin-bottom: 1.5rem;
         }
 
-        .insight-message :global(p:last-child) {
+        .markdown-body p:last-child {
           margin-bottom: 0;
         }
 
-        .insight-message :global(strong) {
+        .markdown-body strong {
           font-weight: 500;
           color: var(--text-primary);
         }
 
-        .insight-message :global(em) {
+        .markdown-body em {
           font-style: italic;
           color: var(--text-secondary);
+        }
+
+        .expand-action {
+          margin-top: 1.5rem;
+          display: flex;
+          justify-content: center;
+        }
+
+        .expand-btn {
+          background: transparent;
+          border: 1px solid var(--border-light);
+          color: var(--text-secondary);
+          padding: 0.5rem 1.5rem;
+          border-radius: 2rem;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all var(--transition-fast, 0.2s ease);
+          font-weight: 400;
+        }
+
+        .expand-btn:hover {
+          background: var(--bg-secondary);
+          color: var(--text-primary);
         }
 
         .skeleton-wrapper {

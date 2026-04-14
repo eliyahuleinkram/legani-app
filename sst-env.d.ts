@@ -6,22 +6,6 @@
 
 declare module "sst" {
   export interface Resource {
-    "Apartments": {
-      "name": string
-      "type": "sst.aws.Dynamo"
-    }
-    "EvoApiKey": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "EvoApiUrl": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "EvoInstanceName": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
     "Generations": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -35,12 +19,17 @@ declare module "sst" {
       "type": "sst.aws.Dynamo"
     }
     "MyWeb": {
-      "type": "sst.aws.Nextjs"
+      "type": "sst.aws.Router"
       "url": string
     }
-    "PromptCache": {
+    "MyWebAssets": {
       "name": string
-      "type": "sst.aws.Dynamo"
+      "type": "sst.aws.Bucket"
+    }
+    "MyWebServer": {
+      "name": string
+      "type": "sst.aws.Function"
+      "url": string
     }
     "SharedBookmarks": {
       "name": string
